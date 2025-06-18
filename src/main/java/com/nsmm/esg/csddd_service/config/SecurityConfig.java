@@ -21,7 +21,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
-                        .requestMatchers("/api/csddd/**").authenticated() // 임시로 모든 요청 허용
+                        .requestMatchers("/api/csddd/**").permitAll()
                         .anyRequest().denyAll()
                 );
 
