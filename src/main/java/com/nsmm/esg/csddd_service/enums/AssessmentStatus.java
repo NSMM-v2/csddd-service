@@ -1,7 +1,7 @@
 package com.nsmm.esg.csddd_service.enums;
 
 /**
- * 📌 AssessmentStatus
+ *  AssessmentStatus
  * - 자가진단 진행 상태를 나타내는 Enum 클래스
  *
  * NOT_STARTED: 자가진단을 아직 시작하지 않음

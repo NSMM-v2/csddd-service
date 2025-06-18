@@ -9,7 +9,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 
 /**
- * 📄 SelfAssessmentAnswer
+ *  SelfAssessmentAnswer
  * - 자가진단 결과에 포함된 각 문항의 개별 답변을 저장하는 엔티티
  * - 한 SelfAssessmentResult(결과)와 다대일 관계
  */
@@ -41,7 +41,7 @@ public class SelfAssessmentAnswer {
     private AnswerChoice answer;
 
     // 해당 문항의 가중치 (ex. 2.5점)
-    // ❗ precision, scale 제거로 오류 해결 (MySQL FLOAT 타입은 scale 지정 불가)
+    //  precision, scale 제거로 오류 해결 (MySQL FLOAT 타입은 scale 지정 불가)
     @Column(nullable = false)
     private Double weight;
 
@@ -58,7 +58,7 @@ public class SelfAssessmentAnswer {
     @Column(length = 500)
     private String remarks;
 
-    // 🔗 SelfAssessmentResult와 다대일 관계 (연결된 결과 ID)
+    //  SelfAssessmentResult와 다대일 관계 (연결된 결과 ID)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "result_id", nullable = false,
             foreignKey = @ForeignKey(name = "fk_answer_result"))

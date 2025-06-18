@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 /**
- * 📌 CSDDD 자가진단 컨트롤러
+ *  CSDDD 자가진단 컨트롤러
  * - 자가진단 제출 및 결과 조회 관련 API를 처리함
  */
 @RestController
@@ -19,11 +19,11 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SelfAssessmentController {
 
-    // 🔧 서비스 레이어 의존성 주입
+    //  서비스 레이어 의존성 주입
     private final SelfAssessmentService selfAssessmentService;
 
     /**
-     * ✅ [POST] 자가진단 결과 제출
+     *  [POST] 자가진단 결과 제출
      * - 클라이언트로부터 자가진단 응답 리스트를 받아 저장 및 분석 수행
      * @param memberId 헤더에서 전달된 회원 ID
      * @param requestList 자가진단 질문에 대한 응답 목록
@@ -43,7 +43,7 @@ public class SelfAssessmentController {
     }
 
     /**
-     * ✅ [GET] 자가진단 요약 결과 조회
+     *  [GET] 자가진단 요약 결과 조회
      * - 점수, 등급, 위반 수, 완료일 등 간단한 정보 반환
      * @param memberId 헤더에서 전달된 회원 ID
      * @return SelfAssessmentResponse (요약 응답 DTO)
@@ -56,7 +56,7 @@ public class SelfAssessmentController {
     }
 
     /**
-     * ✅ [GET] 자가진단 전체 결과 조회
+     *  [GET] 자가진단 전체 결과 조회
      * - 요약 + 개별 문항에 대한 상세 답변 포함
      * @param memberId 헤더에서 전달된 회원 ID
      * @return SelfAssessmentFullResponse (전체 결과 DTO)
@@ -69,7 +69,7 @@ public class SelfAssessmentController {
     }
 
     /**
-     * ✅ [GET] 위반 항목만 필터링 조회
+     *  [GET] 위반 항목만 필터링 조회
      * - YES가 아닌 항목들 중 중요 위반(CRITICAL) 플래그가 true인 항목만 추출
      * @param memberId 헤더에서 전달된 회원 ID
      * @return List<ViolationDto> (위반 항목 리스트)

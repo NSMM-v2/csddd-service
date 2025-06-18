@@ -1,7 +1,7 @@
 package com.nsmm.esg.csddd_service.enums;
 
 /**
- * 📌 AssessmentGrade
+ *  AssessmentGrade
  * - 자가진단 결과에 따라 매겨지는 평가 등급(Enum)
  * - 점수 기준 또는 위반사항 수에 따라 A ~ D로 등급 분류
  *

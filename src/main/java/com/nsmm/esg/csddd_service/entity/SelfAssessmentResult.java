@@ -14,7 +14,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * 📄 SelfAssessmentResult
+ *  SelfAssessmentResult
  * - 자가진단 결과를 저장하는 메인 엔티티
  * - 사용자별로 1개의 결과를 가지며, 여러 개의 문항(SelfAssessmentAnswer)와 연결됨
  */
@@ -81,7 +81,7 @@ public class SelfAssessmentResult {
     @Column(nullable = false)
     private Integer criticalViolationCount = 0;
 
-    // 📌 1:N 연관관계 - 자가진단 문항들
+    //  1:N 연관관계 - 자가진단 문항들
     @OneToMany(mappedBy = "result", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @JsonIgnore
     @Builder.Default
