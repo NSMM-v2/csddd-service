@@ -33,10 +33,15 @@ public class SelfAssessmentService {
      * - DB에 저장한다.
      */
     @Transactional
-    public void submitAssessment(Long memberId, List<SelfAssessmentRequest> requestList) {
-        // 1. SelfAssessmentResult 엔티티 생성 (초기 상태)
+    public void submitAssessment(
+            Long userId,
+            String userType,
+            Long headquartersId,
+            List<SelfAssessmentRequest> requestList
+    ) {
+        // 1. SelfAssessmentResult 엔티티 생성 (userType에 따라 memberId 또는 partnerId 저장 전략 가능)
         SelfAssessmentResult result = SelfAssessmentResult.builder()
-                .memberId(memberId)
+                .memberId(userId)  // 현재 구조에서는 userId만 저장. 확장 필요 시 userType 고려
                 .build();
 
         // 2. 요청(requestList)을 SelfAssessmentAnswer 엔티티로 변환
@@ -48,24 +53,24 @@ public class SelfAssessmentService {
                     .criticalViolation(Boolean.TRUE.equals(req.getCritical()))
                     .category(req.getCategory())
                     .remarks(req.getRemarks())
-                    .result(result)  // 연관관계 설정
+                    .result(result)
                     .build();
         }).collect(Collectors.toList());
 
         // 3. 결과에 답변들 추가
         answers.forEach(result::addAnswer);
 
-        // 4. 점수 계산 및 평가 요약 처리
+        // 4. 점수 계산
         gradeCalculator.evaluate(result);
 
-        // 5. 원본 요청을 JSON으로 직렬화하여 저장 (이력 관리 목적)
+        // 5. JSON 직렬화
         try {
             result.setAnswersJson(objectMapper.writeValueAsString(requestList));
         } catch (JsonProcessingException e) {
             throw new RuntimeException("JSON 직렬화 실패", e);
         }
 
-        // 6. 최종 결과 저장
+        // 6. 저장
         resultRepository.save(result);
     }
 
