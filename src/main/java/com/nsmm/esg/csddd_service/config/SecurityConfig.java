@@ -21,7 +21,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
-                        .requestMatchers("/api/csddd/**").permitAll()
+                        .requestMatchers("/api/v1/csddd/**").permitAll()
                         .anyRequest().denyAll()
                 );
 
