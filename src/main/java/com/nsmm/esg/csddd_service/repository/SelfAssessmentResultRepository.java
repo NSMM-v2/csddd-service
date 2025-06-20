@@ -28,4 +28,7 @@ public interface SelfAssessmentResultRepository extends JpaRepository<SelfAssess
     // 4. 특정 협력사의 최신 결과 조회
     Optional<SelfAssessmentResult> findTopByMemberIdAndHeadquartersIdOrderByCreatedAtDesc(
             Long partnerId, Long headquartersId);
+
+    Optional<SelfAssessmentResult> findTopByMemberIdAndHeadquartersIdAndUserTypeOrderByCreatedAtDesc(
+            Long subPartnerId, Long headquartersId, String secondTierPartner);
 }

@@ -140,7 +140,7 @@ public class SelfAssessmentService {
     }
 
     /**
-     * 본사가 소속 협력사들의 평가 결과 리스트 조회
+     * 본사가 소속 협력사들의 평가 결과 리스트 조회 (1차 + 2차 모두)
      */
     @Transactional(readOnly = true)
     public List<SelfAssessmentResponse> getPartnerResults(Long headquartersId, String requesterType) {
@@ -148,8 +148,52 @@ public class SelfAssessmentService {
             throw new IllegalArgumentException("본사만 접근 가능합니다.");
         }
 
-        List<SelfAssessmentResult> results = resultRepository.findByHeadquartersIdAndUserTypeOrderByCreatedAtDesc(
+        // 1차 및 2차 협력사 모두 조회
+        List<SelfAssessmentResult> firstTierResults = resultRepository.findByHeadquartersIdAndUserTypeOrderByCreatedAtDesc(
+                headquartersId, "FIRST_TIER_PARTNER");
+
+        List<SelfAssessmentResult> secondTierResults = resultRepository.findByHeadquartersIdAndUserTypeOrderByCreatedAtDesc(
+                headquartersId, "SECOND_TIER_PARTNER");
+
+        // 하위 호환성을 위해 기존 PARTNER 타입도 포함
+        List<SelfAssessmentResult> legacyPartnerResults = resultRepository.findByHeadquartersIdAndUserTypeOrderByCreatedAtDesc(
                 headquartersId, "PARTNER");
+
+        List<SelfAssessmentResponse> results = firstTierResults.stream()
+                .map(SelfAssessmentResult::toResponse)
+                .collect(Collectors.toList());
+
+        results.addAll(secondTierResults.stream()
+                .map(SelfAssessmentResult::toResponse)
+                .collect(Collectors.toList()));
+
+        results.addAll(legacyPartnerResults.stream()
+                .map(SelfAssessmentResult::toResponse)
+                .collect(Collectors.toList()));
+
+        return results;
+    }
+
+    /**
+     * 1차 협력사가 소속 2차 협력사들의 평가 결과 리스트 조회
+     */
+    @Transactional(readOnly = true)
+    public List<SelfAssessmentResponse> getSubPartnerResults(Long firstTierPartnerId, Long headquartersId, String requesterType) {
+        if (!"FIRST_TIER_PARTNER".equals(requesterType)) {
+            throw new IllegalArgumentException("1차 협력사만 접근 가능합니다.");
+        }
+
+        // 1차 협력사가 실제로 존재하는지 확인
+        validateFirstTierPartnerExists(firstTierPartnerId, headquartersId);
+
+        // 해당 1차 협력사에 속한 2차 협력사들의 결과 조회
+        // 실제로는 별도의 관계 테이블이나 필드가 필요할 수 있지만,
+        // 현재 구조에서는 headquartersId로 필터링하고 2차 협력사만 조회
+        List<SelfAssessmentResult> results = resultRepository.findByHeadquartersIdAndUserTypeOrderByCreatedAtDesc(
+                headquartersId, "SECOND_TIER_PARTNER");
+
+        // TODO: 실제로는 firstTierPartnerId와 연결된 2차 협력사만 필터링해야 함
+        // 이를 위해서는 추가적인 관계 정보가 필요 (예: parentPartnerId 필드)
 
         return results.stream()
                 .map(SelfAssessmentResult::toResponse)
@@ -173,6 +217,29 @@ public class SelfAssessmentService {
     }
 
     /**
+     * 특정 2차 협력사의 최신 결과 조회 (1차 협력사 전용)
+     */
+    @Transactional(readOnly = true)
+    public SelfAssessmentResponse getSubPartnerResult(Long subPartnerId, Long firstTierPartnerId, Long headquartersId, String requesterType) {
+        if (!"FIRST_TIER_PARTNER".equals(requesterType)) {
+            throw new IllegalArgumentException("1차 협력사만 접근 가능합니다.");
+        }
+
+        // 1차 협력사 존재 여부 확인
+        validateFirstTierPartnerExists(firstTierPartnerId, headquartersId);
+
+        // 2차 협력사 결과 조회
+        SelfAssessmentResult result = (SelfAssessmentResult) resultRepository.findTopByMemberIdAndHeadquartersIdAndUserTypeOrderByCreatedAtDesc(
+                        subPartnerId, headquartersId, "SECOND_TIER_PARTNER")
+                .orElseThrow(() -> new IllegalStateException("해당 2차 협력사의 평가 결과가 없습니다."));
+
+        // TODO: 실제로는 해당 2차 협력사가 이 1차 협력사에 속해있는지 확인해야 함
+        // 이를 위해서는 추가적인 관계 정보가 필요
+
+        return result.toResponse();
+    }
+
+    /**
      * 기존 결과 삭제
      */
     @Transactional
@@ -190,7 +257,7 @@ public class SelfAssessmentService {
      * 접근 권한 검증
      */
     private void validateAccess(Long targetMemberId, String targetUserType, Long requesterId, String requesterType) {
-        if ("PARTNER".equals(requesterType)) {
+        if ("PARTNER".equals(requesterType) || "FIRST_TIER_PARTNER".equals(requesterType) || "SECOND_TIER_PARTNER".equals(requesterType)) {
             // 협력사는 자신의 데이터만 접근 가능
             if (!requesterId.equals(targetMemberId)) {
                 log.warn("협력사 권한 위반 - requesterId: {}, targetMemberId: {}", requesterId, targetMemberId);
@@ -200,7 +267,9 @@ public class SelfAssessmentService {
             // 본사는 자신의 데이터와 소속 협력사 데이터 접근 가능
             if (!requesterId.equals(targetMemberId)) {
                 // 협력사 데이터에 접근하는 경우, 본사-협력사 관계 확인
-                if (!"PARTNER".equals(targetUserType)) {
+                if (!"PARTNER".equals(targetUserType) &&
+                        !"FIRST_TIER_PARTNER".equals(targetUserType) &&
+                        !"SECOND_TIER_PARTNER".equals(targetUserType)) {
                     log.warn("본사 권한 위반 - 다른 본사 데이터 접근 시도. requesterId: {}, targetMemberId: {}", requesterId, targetMemberId);
                     throw new IllegalArgumentException("다른 본사의 데이터에 접근할 수 없습니다.");
                 }
@@ -222,6 +291,19 @@ public class SelfAssessmentService {
         if (!exists) {
             log.warn("본사-협력사 관계 없음 - headquartersId: {}, partnerId: {}", headquartersId, partnerId);
             throw new IllegalArgumentException("해당 협력사는 귀하의 소속이 아닙니다.");
+        }
+    }
+
+    /**
+     * 1차 협력사 존재 여부 검증
+     */
+    private void validateFirstTierPartnerExists(Long firstTierPartnerId, Long headquartersId) {
+        boolean exists = resultRepository.findTopByMemberIdAndHeadquartersIdAndUserTypeOrderByCreatedAtDesc(
+                firstTierPartnerId, headquartersId, "FIRST_TIER_PARTNER").isPresent();
+
+        if (!exists) {
+            log.warn("1차 협력사 존재하지 않음 - firstTierPartnerId: {}, headquartersId: {}", firstTierPartnerId, headquartersId);
+            throw new IllegalArgumentException("해당 1차 협력사가 존재하지 않습니다.");
         }
     }
 
