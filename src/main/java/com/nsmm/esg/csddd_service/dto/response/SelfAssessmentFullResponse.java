@@ -1,7 +1,13 @@
 package com.nsmm.esg.csddd_service.dto.response;
 
+import com.nsmm.esg.csddd_service.dto.ActionPlanDto;
+import com.nsmm.esg.csddd_service.dto.CategoryAnalysisDto;
+import com.nsmm.esg.csddd_service.dto.response.SelfAssessmentAnswerDto;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.Setter;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -11,7 +17,10 @@ import java.util.List;
  * - 요약 정보 + 문항별 응답 리스트를 모두 포함
  */
 @Getter
+@Setter
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class SelfAssessmentFullResponse {
 
     //  자가진단 결과 ID (DB PK)
@@ -58,4 +67,13 @@ public class SelfAssessmentFullResponse {
 
     //  문항별 상세 응답 리스트
     private List<SelfAssessmentAnswerDto> answers;
+
+    //  카테고리별 점수 분석
+    private List<CategoryAnalysisDto> categoryAnalysis;
+
+    //  주요 강점 영역
+    private List<String> strengths;
+
+    //  개선 계획 목록
+    private List<ActionPlanDto> actionPlan;
 }

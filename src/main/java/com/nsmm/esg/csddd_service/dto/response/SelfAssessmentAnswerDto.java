@@ -1,8 +1,11 @@
 package com.nsmm.esg.csddd_service.dto.response;
 
 import com.nsmm.esg.csddd_service.enums.AnswerChoice;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.time.LocalDateTime;
 
@@ -11,7 +14,10 @@ import java.time.LocalDateTime;
  * - 클라이언트에게 개별 답변 정보를 전달할 때 사용됨
  */
 @Getter
+@Setter
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class SelfAssessmentAnswerDto {
 
     //  답변 고유 ID (DB에서 자동 생성된 ID)

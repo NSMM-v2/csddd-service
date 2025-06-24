@@ -1,5 +1,9 @@
 package com.nsmm.esg.csddd_service.service;
 
+import com.nsmm.esg.csddd_service.util.AssessmentAnalyzer;
+import com.nsmm.esg.csddd_service.dto.CategoryAnalysisDto;
+import com.nsmm.esg.csddd_service.dto.ActionPlanDto;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nsmm.esg.csddd_service.dto.request.SelfAssessmentRequest;
@@ -17,6 +21,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -28,6 +34,7 @@ public class SelfAssessmentService {
     private final SelfAssessmentResultRepository resultRepository;
     private final GradeCalculator gradeCalculator;
     private final ObjectMapper objectMapper;
+    private final AssessmentAnalyzer assessmentAnalyzer;
 
     /**
      * 자가진단 제출 처리
@@ -53,17 +60,24 @@ public class SelfAssessmentService {
                 .answersJson("[]")
                 .build();
 
-        List<SelfAssessmentAnswer> answers = requestList.stream().map(req -> {
-            return SelfAssessmentAnswer.builder()
-                    .questionId(req.getQuestionId())
-                    .answer(AnswerChoice.fromString(req.getAnswer()))
-                    .weight(req.getWeight())
-                    .criticalViolation(Boolean.TRUE.equals(req.getCritical()))
-                    .category(req.getCategory())
-                    .remarks(req.getRemarks())
-                    .result(result)
-                    .build();
-        }).collect(Collectors.toList());
+        List<SelfAssessmentAnswer> answers = requestList.stream()
+                .filter(Objects::nonNull) // null 요청 필터링
+                .map(req -> {
+                    String answer = Optional.ofNullable(req.getAnswer())
+                            .orElseThrow(() -> new IllegalArgumentException(
+                                    "문항 " + req.getQuestionId() + "의 답변이 누락되었습니다."));
+
+                    return SelfAssessmentAnswer.builder()
+                            .questionId(req.getQuestionId())
+                            .answer(AnswerChoice.fromString(answer))
+                            .weight(req.getWeight())
+                            .criticalViolation(Boolean.TRUE.equals(req.getCritical()))
+                            .category(req.getCategory())
+                            .remarks(req.getRemarks())
+                            .result(result)
+                            .build();
+                })
+                .collect(Collectors.toList());
 
         answers.forEach(result::addAnswer);
         gradeCalculator.evaluate(result);
@@ -104,6 +118,17 @@ public class SelfAssessmentService {
                 .map(this::toAnswerDto)
                 .collect(Collectors.toList());
 
+        List<CategoryAnalysisDto> categoryAnalysis = assessmentAnalyzer.analyzeByCategory(result);
+        List<String> strengths = assessmentAnalyzer.extractStrengths(categoryAnalysis);
+        List<ActionPlanDto> actionPlans = assessmentAnalyzer.buildActionPlan(result, categoryAnalysis);
+
+        log.info("✔️ 카테고리 분석 개수: {}", categoryAnalysis.size());
+        log.info("✔️ 주요 강점 개수: {}", strengths.size());
+        log.info("✔️ 개선 계획 개수: {}", actionPlans.size());
+        log.info("📊 카테고리 분석: {}", categoryAnalysis);
+        log.info("⭐ 주요 강점: {}", strengths);
+        log.info("🛠️ 개선 계획: {}", actionPlans);
+
         return SelfAssessmentFullResponse.builder()
                 .id(result.getId())
                 .memberId(result.getMemberId())
@@ -120,6 +145,9 @@ public class SelfAssessmentService {
                 .updatedAt(result.getUpdatedAt())
                 .completedAt(result.getCompletedAt())
                 .answers(answers)
+                .categoryAnalysis(categoryAnalysis)
+                .strengths(strengths)
+                .actionPlan(actionPlans)
                 .build();
     }
 
