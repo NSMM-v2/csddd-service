@@ -63,15 +63,20 @@ public class SelfAssessmentService {
         List<SelfAssessmentAnswer> answers = requestList.stream()
                 .filter(Objects::nonNull) // null 요청 필터링
                 .map(req -> {
-                    String answer = Optional.ofNullable(req.getAnswer())
+                    String answerStr = Optional.ofNullable(req.getAnswer())
                             .orElseThrow(() -> new IllegalArgumentException(
                                     "문항 " + req.getQuestionId() + "의 답변이 누락되었습니다."));
 
+                    AnswerChoice answer = AnswerChoice.fromString(answerStr);
+
+                    boolean isCriticalViolation = answer == AnswerChoice.NO && Boolean.TRUE.equals(req.getCritical());
+
                     return SelfAssessmentAnswer.builder()
                             .questionId(req.getQuestionId())
-                            .answer(AnswerChoice.fromString(answer))
+                            .answer(answer)
                             .weight(req.getWeight())
-                            .criticalViolation(Boolean.TRUE.equals(req.getCritical()))
+                            .criticalViolation(isCriticalViolation) // ✅ 핵심 수정
+                            .criticalGrade(req.getCriticalGrade())
                             .category(req.getCategory())
                             .remarks(req.getRemarks())
                             .result(result)

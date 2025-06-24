@@ -6,6 +6,7 @@ import com.nsmm.esg.csddd_service.enums.AssessmentGrade;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.util.Comparator;
 import java.util.List;
 
 @Slf4j
@@ -15,9 +16,7 @@ public class GradeCalculator {
     /**
      * 최종 평가 결과 계산 후 SelfAssessmentResult에 반영
      * - 총점, 실제 점수 계산
-     * - 정규화 점수 산출 (0~100점)
-     * - 등급 및 중대 위반 개수 반영
-     * - 요약 및 권장 사항도 함께 생성
+     * - 중대 위반 항목 존재 시 해당 grade로 자동 강등
      */
     public void evaluate(SelfAssessmentResult result) {
         List<SelfAssessmentAnswer> answers = result.getAnswers();
@@ -33,7 +32,7 @@ public class GradeCalculator {
             return;
         }
 
-        // null 또는 weight가 null인 항목 제거
+        // 유효한 답변만 필터링
         List<SelfAssessmentAnswer> validAnswers = answers.stream()
                 .filter(answer -> answer != null && answer.getWeight() != null)
                 .toList();
@@ -49,7 +48,16 @@ public class GradeCalculator {
 
         int normalizedScore = totalPossible == 0 ? 0 : (int) Math.round((actualScore / totalPossible) * 100);
 
-        AssessmentGrade grade = assignGrade(normalizedScore);
+        // 중대 위반이 있는 경우 가장 낮은 등급으로 자동 강등
+        AssessmentGrade worstCriticalGrade = validAnswers.stream()
+                .filter(a -> Boolean.TRUE.equals(a.getCriticalViolation()))
+                .map(a -> a.getCriticalGrade() != null ? a.getCriticalGrade() : AssessmentGrade.D)
+                .min(Comparator.naturalOrder())  // 가장 낮은 등급 (D 우선)
+                .orElse(null);
+
+        AssessmentGrade grade = (worstCriticalGrade != null)
+                ? worstCriticalGrade
+                : assignGrade(normalizedScore);
 
         int criticalCount = (int) validAnswers.stream()
                 .filter(a -> Boolean.TRUE.equals(a.getCriticalViolation()))
