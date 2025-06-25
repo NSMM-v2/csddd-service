@@ -27,4 +27,7 @@ public class ViolationDto {
 
     //  비고 또는 코멘트 (선택값)
     private String remarks;
+
+    private String penaltyInfo;    // 벌금이나 제재 정보
+    private String legalBasis;     // 관련 법적 조항
 }
