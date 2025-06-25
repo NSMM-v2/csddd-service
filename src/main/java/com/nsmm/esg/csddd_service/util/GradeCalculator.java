@@ -63,11 +63,13 @@ public class GradeCalculator {
                 .filter(a -> Boolean.TRUE.equals(a.getCriticalViolation()))
                 .count();
 
+        // ...
         String summary = switch (grade) {
             case A -> "탁월한 이행 수준입니다.";
             case B -> "양호한 이행 상태이나 일부 개선 필요.";
             case C -> "보통 수준이며 개선 여지가 큽니다.";
             case D -> "미흡한 이행 상태로 시급한 개선이 필요합니다.";
+            case B_C -> "경계 수준의 이행 상태입니다. 추가적인 모니터링이 필요합니다.";
         };
 
         String recommendations = switch (grade) {
@@ -75,6 +77,7 @@ public class GradeCalculator {
             case B -> "위반 항목에 대한 문서 보완을 고려하세요.";
             case C -> "중대 항목에 대한 개선 조치 계획이 필요합니다.";
             case D -> "즉각적인 시정조치 및 모니터링 체계 도입이 필요합니다.";
+            case B_C -> "개선 조치 여부를 주기적으로 검토하고 중장기 이행 계획을 수립하세요.";
         };
 
         result.finalizeAssessment(

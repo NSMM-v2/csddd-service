@@ -52,12 +52,17 @@ public class AssessmentAnalyzer {
     /**
      * 주요 강점 영역 추출 (80점 이상)
      */
-    public List<String> extractStrengths(List<CategoryAnalysisDto> categories) {
+    public List<String> extractStrengths(List<CategoryAnalysisDto> categories, List<SelfAssessmentAnswer> answers) {
+        // 중대한 위반이 있는 카테고리 목록 추출
+        Set<String> categoriesWithCriticalViolations = answers.stream()
+                .filter(SelfAssessmentAnswer::getCriticalViolation)
+                .map(SelfAssessmentAnswer::getCategory)
+                .collect(Collectors.toSet());
+
+        // 강점 조건: 90점 이상이면서 중대한 위반이 없는 카테고리
         return categories.stream()
-                .filter(c -> c.getScore() >= 80)
-                .sorted(Comparator.comparingInt(CategoryAnalysisDto::getScore).reversed())
+                .filter(c -> c.getScore() >= 90 && !categoriesWithCriticalViolations.contains(c.getCategory()))
                 .map(CategoryAnalysisDto::getCategory)
-                .limit(3)
                 .toList();
     }
 

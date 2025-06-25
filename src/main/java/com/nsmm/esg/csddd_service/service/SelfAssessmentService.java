@@ -124,7 +124,7 @@ public class SelfAssessmentService {
                 .collect(Collectors.toList());
 
         List<CategoryAnalysisDto> categoryAnalysis = assessmentAnalyzer.analyzeByCategory(result);
-        List<String> strengths = assessmentAnalyzer.extractStrengths(categoryAnalysis);
+        List<String> strengths = assessmentAnalyzer.extractStrengths(categoryAnalysis, result.getAnswers());
         List<ActionPlanDto> actionPlans = assessmentAnalyzer.buildActionPlan(result, categoryAnalysis);
 
         log.info("✔️ 카테고리 분석 개수: {}", categoryAnalysis.size());
