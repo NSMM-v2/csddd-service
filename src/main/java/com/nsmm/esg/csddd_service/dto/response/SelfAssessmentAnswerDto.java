@@ -48,6 +48,6 @@ public class SelfAssessmentAnswerDto {
     // 마지막 수정 시각 (DB에서 자동 설정)
     private LocalDateTime updatedAt;
 
-    // ✅ 추가: 해당 문항 위반 시 적용되는 자동 강등 등급
+    // 해당 문항 위반 시 적용되는 자동 강등 등급
     private AssessmentGrade criticalGrade;
 }

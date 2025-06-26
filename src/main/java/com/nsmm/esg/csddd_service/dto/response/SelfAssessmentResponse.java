@@ -51,7 +51,7 @@ public class SelfAssessmentResponse {
 
     //  마지막 수정 시각
     private LocalDateTime updatedAt;
-
+    private String companyName;
     //  진단 완료 시각 (COMPLETED일 때만 존재)
     private LocalDateTime completedAt;
 }

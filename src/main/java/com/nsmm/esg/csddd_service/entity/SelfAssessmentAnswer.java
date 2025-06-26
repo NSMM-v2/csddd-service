@@ -29,6 +29,9 @@ public class SelfAssessmentAnswer {
     @Column(nullable = false, length = 20)
     private String questionId;
 
+    @Column(name = "question_text", length = 1000)
+    private String questionText;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
     private AnswerChoice answer;

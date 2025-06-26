@@ -16,7 +16,7 @@ public class GradeCalculator {
     /**
      * 최종 평가 결과 계산 후 SelfAssessmentResult에 반영
      * - 총점, 실제 점수 계산
-     * - 중대 위반 항목 존재 시 해당 grade로 자동 강등
+     * - 중대 위반 항목 존재 시 해당 grade로 차등 강등
      */
     public void evaluate(SelfAssessmentResult result) {
         List<SelfAssessmentAnswer> answers = result.getAnswers();
@@ -48,7 +48,7 @@ public class GradeCalculator {
 
         int normalizedScore = totalPossible == 0 ? 0 : (int) Math.round((actualScore / totalPossible) * 100);
 
-        // 중대 위반이 있는 경우 가장 낮은 등급으로 자동 강등
+        // 중대 위반이 있는 경우: 가장 낮은 등급을 강등 기준으로 사용
         AssessmentGrade worstCriticalGrade = validAnswers.stream()
                 .filter(a -> Boolean.TRUE.equals(a.getCriticalViolation()))
                 .map(a -> a.getCriticalGrade() != null ? a.getCriticalGrade() : AssessmentGrade.D)
@@ -63,7 +63,6 @@ public class GradeCalculator {
                 .filter(a -> Boolean.TRUE.equals(a.getCriticalViolation()))
                 .count();
 
-        // ...
         String summary = switch (grade) {
             case A -> "탁월한 이행 수준입니다.";
             case B -> "양호한 이행 상태이나 일부 개선 필요.";

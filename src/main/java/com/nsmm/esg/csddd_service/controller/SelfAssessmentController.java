@@ -38,6 +38,7 @@ public class SelfAssessmentController {
                     authInfo.userId,
                     authInfo.userType,
                     authInfo.headquartersId,
+                    authInfo.companyName,
                     requestList
             );
 
@@ -57,19 +58,19 @@ public class SelfAssessmentController {
             @RequestHeader(value = "X-USER-TYPE", required = false) String userType,
             @RequestHeader(value = "X-HEADQUARTERS-ID", required = false) String headquartersIdStr,
             @RequestHeader(value = "X-PARTNER-ID", required = false) String partnerIdStr,
-            @Valid @RequestBody List<SelfAssessmentRequest> requestList
+            @Valid @RequestBody SelfAssessmentRequest request
     ) {
         try {
             AuthInfo authInfo = validateAndParseHeaders(userType, headquartersIdStr, partnerIdStr);
 
-            log.debug("[PUT /update] userType={}, userId={}, hqId={}, entries={}",
-                    authInfo.userType, authInfo.userId, authInfo.headquartersId, requestList.size());
+
 
             selfAssessmentService.submitAssessment(
                     authInfo.userId,
                     authInfo.userType,
                     authInfo.headquartersId,
-                    requestList
+                    request.getCompanyName(),
+                    request.getAnswers()
             );
 
             List<ViolationDto> violations = selfAssessmentService.getViolations(
@@ -343,6 +344,7 @@ public class SelfAssessmentController {
         final Long userId;
         final Long requesterId;
         final Long headquartersId;
+        String companyName;
 
         AuthInfo(String userType, String requesterType, Long userId, Long requesterId, Long headquartersId) {
             this.userType = userType;
@@ -350,6 +352,10 @@ public class SelfAssessmentController {
             this.userId = userId;
             this.requesterId = requesterId;
             this.headquartersId = headquartersId;
+            this.companyName = null;
+        }
+        void setCompanyName(String companyName) {
+            this.companyName = companyName;
         }
     }
 

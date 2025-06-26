@@ -36,7 +36,9 @@ public class SelfAssessmentResult {
     // 사용자 ID (본사 또는 협력사)
     @Column(nullable = false)
     private Long memberId;
-
+    // SelfAssessmentResult.java
+    @Column(length = 100)
+    private String companyName;
     // 사용자 유형 (HEADQUARTERS or PARTNER)
     @Column(nullable = false, length = 20)
     private String userType;
@@ -67,9 +69,9 @@ public class SelfAssessmentResult {
     @Column(nullable = false, length = 20)
     private AssessmentStatus status = AssessmentStatus.COMPLETED;
 
-    // 원본 요청 JSON
-    @Column(nullable = false, columnDefinition = "TEXT")
-    private String answersJson;
+//    // 원본 요청 JSON
+//    @Column(nullable = false, columnDefinition = "TEXT")
+//    private String answersJson;
 
     @Column(length = 1000)
     private String summary;
@@ -156,9 +158,9 @@ public class SelfAssessmentResult {
         }
     }
 
-    public void setAnswersJson(String answersJson) {
-        this.answersJson = answersJson;
-    }
+//    public void setAnswersJson(String answersJson) {
+//        this.answersJson = answersJson;
+//    }
 
     public SelfAssessmentResponse toResponse() {
         return SelfAssessmentResponse.builder()
@@ -176,6 +178,7 @@ public class SelfAssessmentResult {
                 .createdAt(this.createdAt)
                 .updatedAt(this.updatedAt)
                 .completedAt(this.completedAt)
+                .companyName(this.companyName)
                 .build();
     }
 

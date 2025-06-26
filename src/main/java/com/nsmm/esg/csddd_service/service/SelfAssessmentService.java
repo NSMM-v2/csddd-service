@@ -15,6 +15,7 @@ import com.nsmm.esg.csddd_service.enums.AssessmentGrade;
 import com.nsmm.esg.csddd_service.repository.SelfAssessmentAnswerRepository;
 import com.nsmm.esg.csddd_service.repository.SelfAssessmentResultRepository;
 import com.nsmm.esg.csddd_service.util.GradeCalculator;
+import com.nsmm.esg.csddd_service.util.ViolationMetaMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -44,6 +45,7 @@ public class SelfAssessmentService {
             Long userId,
             String userType,
             Long headquartersId,
+            String companyName,
             List<SelfAssessmentRequest> requestList
     ) {
         // 기존 결과가 있으면 삭제
@@ -53,15 +55,16 @@ public class SelfAssessmentService {
                 .memberId(userId)
                 .userType(userType)
                 .headquartersId(headquartersId)
+                .companyName(companyName)
                 .score(0)
                 .actualScore(0.0)
                 .totalPossibleScore(0.0)
                 .grade(AssessmentGrade.D)
-                .answersJson("[]")
+//                .answersJson("[]")
                 .build();
 
         List<SelfAssessmentAnswer> answers = requestList.stream()
-                .filter(Objects::nonNull) // null 요청 필터링
+                .filter(Objects::nonNull)
                 .map(req -> {
                     String answerStr = Optional.ofNullable(req.getAnswer())
                             .orElseThrow(() -> new IllegalArgumentException(
@@ -69,13 +72,14 @@ public class SelfAssessmentService {
 
                     AnswerChoice answer = AnswerChoice.fromString(answerStr);
 
-                    boolean isCriticalViolation = answer == AnswerChoice.NO && Boolean.TRUE.equals(req.getCritical());
 
+                    boolean isCriticalViolation = Boolean.TRUE.equals(req.getCritical()) &&
+                            answer != AnswerChoice.YES;
                     return SelfAssessmentAnswer.builder()
                             .questionId(req.getQuestionId())
                             .answer(answer)
                             .weight(req.getWeight())
-                            .criticalViolation(isCriticalViolation) // ✅ 핵심 수정
+                            .criticalViolation(isCriticalViolation)
                             .criticalGrade(req.getCriticalGrade())
                             .category(req.getCategory())
                             .remarks(req.getRemarks())
@@ -87,14 +91,13 @@ public class SelfAssessmentService {
         answers.forEach(result::addAnswer);
         gradeCalculator.evaluate(result);
 
-        try {
-            result.setAnswersJson(objectMapper.writeValueAsString(requestList));
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException("JSON 직렬화 실패", e);
-        }
+//        try {
+//            result.setAnswersJson(objectMapper.writeValueAsString(requestList));
+//        } catch (JsonProcessingException e) {
+//            throw new RuntimeException("JSON 직렬화 실패", e);
+//        }
 
         resultRepository.save(result);
-        log.info("자가진단 결과 저장 완료 - userId: {}, userType: {}, headquartersId: {}", userId, userType, headquartersId);
     }
 
     /**
@@ -118,7 +121,6 @@ public class SelfAssessmentService {
         validateAccess(memberId, userType, requesterId, requesterType);
 
         SelfAssessmentResult result = findResultWithAccess(memberId, userType, requesterId, requesterType);
-
         List<SelfAssessmentAnswerDto> answers = result.getAnswers().stream()
                 .map(this::toAnswerDto)
                 .collect(Collectors.toList());
@@ -127,16 +129,21 @@ public class SelfAssessmentService {
         List<String> strengths = assessmentAnalyzer.extractStrengths(categoryAnalysis, result.getAnswers());
         List<ActionPlanDto> actionPlans = assessmentAnalyzer.buildActionPlan(result, categoryAnalysis);
 
-        log.info("✔️ 카테고리 분석 개수: {}", categoryAnalysis.size());
-        log.info("✔️ 주요 강점 개수: {}", strengths.size());
-        log.info("✔️ 개선 계획 개수: {}", actionPlans.size());
-        log.info("📊 카테고리 분석: {}", categoryAnalysis);
-        log.info("⭐ 주요 강점: {}", strengths);
-        log.info("🛠️ 개선 계획: {}", actionPlans);
+        // 중대/일반 위반 항목 리스트 생성
+        List<ViolationDto> criticalViolations = result.getAnswers().stream()
+                .filter(a ->
+                        a.getAnswer() == AnswerChoice.NO ||
+                                a.getAnswer() == AnswerChoice.PARTIAL ||
+                                Boolean.TRUE.equals(a.getCriticalViolation())
+                )
+                .map(this::toViolationDto)
+                .collect(Collectors.toList());
+
 
         return SelfAssessmentFullResponse.builder()
                 .id(result.getId())
                 .memberId(result.getMemberId())
+                .companyName(result.getCompanyName())
                 .score(result.getScore())
                 .actualScore(result.getActualScore())
                 .totalPossibleScore(result.getTotalPossibleScore())
@@ -153,6 +160,7 @@ public class SelfAssessmentService {
                 .categoryAnalysis(categoryAnalysis)
                 .strengths(strengths)
                 .actionPlan(actionPlans)
+                .criticalViolations(criticalViolations)
                 .build();
     }
 
@@ -225,7 +233,7 @@ public class SelfAssessmentService {
         List<SelfAssessmentResult> results = resultRepository.findByHeadquartersIdAndUserTypeOrderByCreatedAtDesc(
                 headquartersId, "SECOND_TIER_PARTNER");
 
-        // TODO: 실제로는 firstTierPartnerId와 연결된 2차 협력사만 필터링해야 함
+
         // 이를 위해서는 추가적인 관계 정보가 필요 (예: parentPartnerId 필드)
 
         return results.stream()
@@ -266,7 +274,6 @@ public class SelfAssessmentService {
                         subPartnerId, headquartersId, "SECOND_TIER_PARTNER")
                 .orElseThrow(() -> new IllegalStateException("해당 2차 협력사의 평가 결과가 없습니다."));
 
-        // TODO: 실제로는 해당 2차 협력사가 이 1차 협력사에 속해있는지 확인해야 함
         // 이를 위해서는 추가적인 관계 정보가 필요
 
         return result.toResponse();
@@ -280,7 +287,6 @@ public class SelfAssessmentService {
         resultRepository.findTopByMemberIdAndUserTypeOrderByCreatedAtDesc(memberId, userType).ifPresent(result -> {
             answerRepository.deleteAll(result.getAnswers());
             resultRepository.delete(result);
-            log.info("기존 자가진단 결과 삭제 완료 - memberId: {}, userType: {}", memberId, userType);
         });
     }
 
@@ -293,7 +299,6 @@ public class SelfAssessmentService {
         if ("PARTNER".equals(requesterType) || "FIRST_TIER_PARTNER".equals(requesterType) || "SECOND_TIER_PARTNER".equals(requesterType)) {
             // 협력사는 자신의 데이터만 접근 가능
             if (!requesterId.equals(targetMemberId)) {
-                log.warn("협력사 권한 위반 - requesterId: {}, targetMemberId: {}", requesterId, targetMemberId);
                 throw new IllegalArgumentException("접근 권한이 없습니다.");
             }
         } else if ("HEADQUARTERS".equals(requesterType)) {
@@ -303,7 +308,6 @@ public class SelfAssessmentService {
                 if (!"PARTNER".equals(targetUserType) &&
                         !"FIRST_TIER_PARTNER".equals(targetUserType) &&
                         !"SECOND_TIER_PARTNER".equals(targetUserType)) {
-                    log.warn("본사 권한 위반 - 다른 본사 데이터 접근 시도. requesterId: {}, targetMemberId: {}", requesterId, targetMemberId);
                     throw new IllegalArgumentException("다른 본사의 데이터에 접근할 수 없습니다.");
                 }
                 // 추가 검증: 해당 협력사가 실제로 이 본사 소속인지 확인
@@ -322,7 +326,6 @@ public class SelfAssessmentService {
                 .isPresent();
 
         if (!exists) {
-            log.warn("본사-협력사 관계 없음 - headquartersId: {}, partnerId: {}", headquartersId, partnerId);
             throw new IllegalArgumentException("해당 협력사는 귀하의 소속이 아닙니다.");
         }
     }
@@ -335,7 +338,6 @@ public class SelfAssessmentService {
                 firstTierPartnerId, headquartersId, "FIRST_TIER_PARTNER").isPresent();
 
         if (!exists) {
-            log.warn("1차 협력사 존재하지 않음 - firstTierPartnerId: {}, headquartersId: {}", firstTierPartnerId, headquartersId);
             throw new IllegalArgumentException("해당 1차 협력사가 존재하지 않습니다.");
         }
     }
@@ -375,7 +377,6 @@ public class SelfAssessmentService {
     @Deprecated
     @Transactional(readOnly = true)
     public SelfAssessmentResponse getResult(Long memberId, String userType) {
-        log.warn("권한 검증 없는 getResult 호출 - memberId: {}, userType: {}", memberId, userType);
         SelfAssessmentResult result = resultRepository.findTopByMemberIdAndUserTypeOrderByCreatedAtDesc(memberId, userType)
                 .orElseThrow(() -> new IllegalStateException("평가 결과가 없습니다."));
         return result.toResponse();
@@ -387,7 +388,6 @@ public class SelfAssessmentService {
     @Deprecated
     @Transactional(readOnly = true)
     public SelfAssessmentFullResponse getFullResult(Long memberId, String userType) {
-        log.warn("권한 검증 없는 getFullResult 호출 - memberId: {}, userType: {}", memberId, userType);
         SelfAssessmentResult result = resultRepository.findTopByMemberIdAndUserTypeOrderByCreatedAtDesc(memberId, userType)
                 .orElseThrow(() -> new IllegalStateException("평가 결과가 없습니다."));
 
@@ -410,6 +410,7 @@ public class SelfAssessmentService {
                 .createdAt(result.getCreatedAt())
                 .updatedAt(result.getUpdatedAt())
                 .completedAt(result.getCompletedAt())
+                .companyName(result.getCompanyName())
                 .answers(answers)
                 .build();
     }
@@ -420,7 +421,6 @@ public class SelfAssessmentService {
     @Deprecated
     @Transactional(readOnly = true)
     public List<ViolationDto> getViolations(Long memberId, String userType) {
-        log.warn("권한 검증 없는 getViolations 호출 - memberId: {}, userType: {}", memberId, userType);
         SelfAssessmentResult result = resultRepository.findTopByMemberIdAndUserTypeOrderByCreatedAtDesc(memberId, userType)
                 .orElseThrow(() -> new IllegalStateException("평가 결과가 없습니다."));
 
@@ -447,12 +447,23 @@ public class SelfAssessmentService {
     }
 
     private ViolationDto toViolationDto(SelfAssessmentAnswer a) {
+        String questionId = a.getQuestionId();
+        ViolationMeta meta = ViolationMetaMap.get(questionId);
+
+        if (meta == null) {
+            meta = new ViolationMeta("", "", ""); // null 방지용 빈 값 처리
+        }
+
         return ViolationDto.builder()
-                .questionId(a.getQuestionId())
+                .questionId(questionId)
+                .questionText(Optional.ofNullable(a.getQuestionText()).orElse(""))
                 .answer(a.getAnswer())
-                .criticalViolation(a.getCriticalViolation())
-                .category(a.getCategory())
-                .remarks(a.getRemarks())
+                .criticalViolation(Optional.ofNullable(a.getCriticalViolation()).orElse(false))
+                .violationGrade(a.getCriticalGrade())
+                .violationReason(a.getRemarks())
+                .category(meta.getCategory())
+                .penaltyInfo(meta.getPenaltyInfo())
+                .legalBasis(meta.getLegalBasis())
                 .build();
     }
 }

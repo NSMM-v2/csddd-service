@@ -15,11 +15,11 @@ import com.fasterxml.jackson.annotation.JsonValue;
  * B/C: 경계 등급
  */
 public enum AssessmentGrade {
-    A,
-    B,
-    C,
-    D,
-    B_C; // B/C 등급 대응용 내부 표현
+    D,    // 0 - 가장 나쁨 (min에서 선택됨)
+    C,    // 1
+    B_C,  // 2
+    B,    // 3
+    A;    // 4 - 가장 좋음
 
     @JsonValue
     public String toValue() {

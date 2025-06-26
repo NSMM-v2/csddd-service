@@ -4,6 +4,8 @@ import com.nsmm.esg.csddd_service.enums.AssessmentGrade;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.List;
+
 /**
  * 클라이언트가 자가진단 제출 시 사용하는 요청 DTO
  * - 각 문항에 대한 응답 데이터를 포함함
@@ -12,6 +14,7 @@ import lombok.Setter;
 @Setter
 public class SelfAssessmentRequest {
 
+    private String companyName;
     // 질문 식별자 (예: "1.1", "2.3" 등 문항 번호)
     private String questionId;
 
@@ -29,7 +32,7 @@ public class SelfAssessmentRequest {
 
     // 비고 또는 추가 설명 (선택 입력)
     private String remarks;
-
-    // ✅ 추가: 위반 시 적용할 강등 등급
+    private List<SelfAssessmentRequest> answers;
+    // 위반 시 적용할 강등 등급
     private AssessmentGrade criticalGrade;
 }

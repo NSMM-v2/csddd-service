@@ -29,6 +29,7 @@ public class SelfAssessmentFullResponse {
     //  응답한 회원 ID
     private Long memberId;
 
+    private String companyName;
     //  점수 (환산 점수: 정수형)
     private Integer score;
 
@@ -76,4 +77,7 @@ public class SelfAssessmentFullResponse {
 
     //  개선 계획 목록
     private List<ActionPlanDto> actionPlan;
+
+    // 위반 항목 리스트 (NO, PARTIAL, CRITICAL 항목 포함)
+    private List<ViolationDto> criticalViolations;
 }
