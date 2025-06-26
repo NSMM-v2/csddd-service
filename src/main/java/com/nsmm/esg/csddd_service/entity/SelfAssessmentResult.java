@@ -1,8 +1,5 @@
 package com.nsmm.esg.csddd_service.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.nsmm.esg.csddd_service.dto.response.SelfAssessmentResponse;
-import com.nsmm.esg.csddd_service.enums.AssessmentGrade;
 import com.nsmm.esg.csddd_service.enums.AssessmentStatus;
 import jakarta.persistence.*;
 import lombok.*;
@@ -10,114 +7,196 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.List;
 
+/**
+ * CSDDD 자가진단 결과 엔티티
+ * 
+ * 본사와 협력사의 CSDDD 자가진단 결과를 저장하는 엔티티입니다.
+ * Scope3 방식과 동일하게 headquartersId/partnerId로 사용자를 구분합니다.
+ * 
+ * 사용자 구분 방식:
+ * - 본사: partnerId가 null, headquartersId가 자신의 ID
+ * - 협력사: partnerId가 존재, headquartersId는 소속 본사 ID
+ * 
+ * 등급 계산:
+ * - 백엔드에서는 수치값(점수)만 저장
+ * - 프론트엔드에서 점수를 기반으로 등급(A/B/C/D) 계산
+ * 
+ * @author ESG Project Team
+ * @version 2.0
+ * @since 2024
+ * @lastModified 2024-12-20
+ */
 @Entity
-@Table(name = "self_assessment_results",
-        indexes = {
-                @Index(name = "idx_member_id", columnList = "memberId"),
-                @Index(name = "idx_member_created", columnList = "memberId, createdAt"),
-                @Index(name = "idx_grade", columnList = "grade"),
-                @Index(name = "idx_status", columnList = "status"),
-                @Index(name = "idx_user_type", columnList = "userType"),
-                @Index(name = "idx_headquarters_id", columnList = "headquartersId")
-        })
+@Table(name = "self_assessment_results", indexes = {
+        @Index(name = "idx_headquarters_id", columnList = "headquarters_id"),
+        @Index(name = "idx_partner_id", columnList = "partner_id"),
+        @Index(name = "idx_tree_path", columnList = "tree_path"),
+        @Index(name = "idx_headquarters_created", columnList = "headquarters_id, created_at"),
+        @Index(name = "idx_status", columnList = "status"),
+        @Index(name = "idx_score", columnList = "score")
+})
 @Getter
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class SelfAssessmentResult {
 
+    // ============================================================================
+    // 기본 식별자 (Primary Key)
+    // ============================================================================
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Long id; // 자가진단 결과 고유 식별자
 
-    // 사용자 ID (본사 또는 협력사)
-    @Column(nullable = false)
-    private Long memberId;
+    // ============================================================================
+    // 사용자 식별 정보 (User Identification)
+    // ============================================================================
 
-    // 사용자 유형 (HEADQUARTERS or PARTNER)
-    @Column(nullable = false, length = 20)
-    private String userType;
-
-    // 소속 본사 ID (협력사는 소속 HQ ID, 본사는 자기 ID)
-    @Column(nullable = false)
+    /**
+     * 소속 본사 ID
+     * - 본사인 경우: 자신의 본사 ID
+     * - 협력사인 경우: 소속된 본사의 ID
+     * Auth Service의 JWT 토큰에서 제공되는 headquartersId와 매핑
+     */
+    @Column(name = "headquarters_id", nullable = false)
     private Long headquartersId;
 
-    // 정규화된 점수 (0~100)
+    /**
+     * 협력사 ID
+     * - 본사인 경우: null
+     * - 협력사인 경우: 해당 협력사의 ID
+     * Auth Service의 JWT 토큰에서 제공되는 partnerId와 매핑
+     */
+    @Column(name = "partner_id")
+    private Long partnerId;
+
+    /**
+     * 조직 트리 경로
+     * 권한 검증 및 계층 구조 관리를 위한 경로 정보
+     * 형식: "HQ001" (본사) 또는 "HQ001/L1-001/L2-003" (협력사)
+     */
+    @Column(name = "tree_path", nullable = false, length = 500)
+    private String treePath;
+
+    // ============================================================================
+    // 평가 점수 정보 (Assessment Scores)
+    // ============================================================================
+
+    /**
+     * 정규화된 점수 (0~100)
+     * 프론트엔드에서 등급 계산의 기준이 되는 점수
+     * 90점 이상: A등급, 75점 이상: B등급, 60점 이상: C등급, 60점 미만: D등급
+     */
     @Column(nullable = false)
     private Integer score;
 
-    // 실질적 점수 (ex. 34.5)
-    @Column(nullable = false)
+    /**
+     * 실제 획득 점수
+     * 가중치가 적용된 실제 점수 (예: 34.5점)
+     */
+    @Column(name = "actual_score", nullable = false)
     private Double actualScore;
 
-    // 가능한 총점 (ex. 40.0)
-    @Column(nullable = false)
+    /**
+     * 총 가능 점수
+     * 해당 진단에서 획득 가능한 최대 점수 (예: 40.0점)
+     */
+    @Column(name = "total_possible_score", nullable = false)
     private Double totalPossibleScore;
 
-    // 등급 (A/B/C/D)
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 10)
-    private AssessmentGrade grade;
+    // ============================================================================
+    // 평가 상태 및 결과 정보 (Assessment Status & Results)
+    // ============================================================================
 
+    /**
+     * 진단 상태
+     * - COMPLETED: 완료
+     * - IN_PROGRESS: 진행중 (향후 확장용)
+     * - CANCELLED: 취소됨 (향후 확장용)
+     */
     @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private AssessmentStatus status = AssessmentStatus.COMPLETED;
 
-    // 원본 요청 JSON
-    @Column(nullable = false, columnDefinition = "TEXT")
-    private String answersJson;
-
+    /**
+     * 평가 요약
+     * 진단 결과에 대한 간략한 요약 설명
+     */
     @Column(length = 1000)
     private String summary;
 
+    /**
+     * 개선 권고사항
+     * 진단 결과를 바탕으로 한 구체적인 개선 방안 제시
+     */
     @Column(length = 2000)
     private String recommendations;
 
+    /**
+     * 중대위반 건수
+     * 중대위반으로 분류된 항목의 개수
+     * 중대위반이 있는 경우 등급이 자동으로 강등됨
+     */
     @Builder.Default
-    @Column(nullable = false)
+    @Column(name = "critical_violation_count", nullable = false)
     private Integer criticalViolationCount = 0;
 
+    // ============================================================================
+    // 연관 관계 (Relationships)
+    // ============================================================================
+
+    /**
+     * 자가진단 답변 목록
+     * 하나의 진단 결과에 여러 개의 답변이 포함됨
+     */
     @OneToMany(mappedBy = "result", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    @JsonIgnore
     @Builder.Default
     private List<SelfAssessmentAnswer> answers = new ArrayList<>();
 
+    // ============================================================================
+    // 타임스탬프 (Timestamps)
+    // ============================================================================
+
     @CreationTimestamp
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt; // 생성 일시
 
     @UpdateTimestamp
-    @Column(nullable = false)
-    private LocalDateTime updatedAt;
+    @Column(name = "updated_at", nullable = false)
+    private LocalDateTime updatedAt; // 수정 일시
 
-    @Column
-    private LocalDateTime completedAt;
+    @Column(name = "completed_at")
+    private LocalDateTime completedAt; // 완료 일시
 
-    // === 편의 메서드 ===
+    // ============================================================================
+    // 편의 메서드 (Convenience Methods)
+    // ============================================================================
 
-    public void addAnswer(SelfAssessmentAnswer answer) {
-        this.answers.add(answer);
+    /**
+     * 본사 여부 확인
+     * partnerId가 null인 경우 본사로 판단
+     */
+    public boolean isHeadquarters() {
+        return this.partnerId == null;
     }
 
-    public void removeAnswer(SelfAssessmentAnswer answer) {
-        this.answers.remove(answer);
+    /**
+     * 협력사 여부 확인
+     * partnerId가 존재하는 경우 협력사로 판단
+     */
+    public boolean isPartner() {
+        return this.partnerId != null;
     }
 
-    public List<SelfAssessmentAnswer> getCriticalViolations() {
-        return answers.stream()
-                .filter(SelfAssessmentAnswer::getCriticalViolation)
-                .collect(Collectors.toList());
-    }
-
-    public Map<String, List<SelfAssessmentAnswer>> getAnswersByCategory() {
-        return answers.stream()
-                .collect(Collectors.groupingBy(SelfAssessmentAnswer::getCategory));
-    }
-
+    /**
+     * 완료율 계산
+     * (실제 점수 / 총 가능 점수) * 100
+     */
     public Double getCompletionRate() {
         if (totalPossibleScore == null || totalPossibleScore == 0) {
             return 0.0;
@@ -125,26 +204,27 @@ public class SelfAssessmentResult {
         return (actualScore / totalPossibleScore) * 100;
     }
 
+    /**
+     * 고위험 여부 판단
+     * 점수가 60점 미만이거나 중대위반이 있는 경우
+     */
     public boolean isHighRisk() {
-        return grade == AssessmentGrade.D || criticalViolationCount > 0;
+        return score < 60 || criticalViolationCount > 0;
     }
 
-    public boolean isLowRisk() {
-        return grade == AssessmentGrade.A && criticalViolationCount == 0;
-    }
-
+    /**
+     * 평가 완료 처리
+     * 최종 점수와 결과를 설정하고 완료 상태로 변경
+     */
     public void finalizeAssessment(
             int score,
             double actualScore,
             double totalScore,
-            AssessmentGrade grade,
             String summary,
-            String recommendations
-    ) {
+            String recommendations) {
         this.score = score;
         this.actualScore = actualScore;
         this.totalPossibleScore = totalScore;
-        this.grade = grade;
         this.summary = summary;
         this.recommendations = recommendations;
         this.criticalViolationCount = (int) answers.stream()
@@ -156,38 +236,14 @@ public class SelfAssessmentResult {
         }
     }
 
-    public void setAnswersJson(String answersJson) {
-        this.answersJson = answersJson;
-    }
-
-    public SelfAssessmentResponse toResponse() {
-        return SelfAssessmentResponse.builder()
-                .id(this.id)
-                .memberId(this.memberId)
-                .score(this.score)
-                .actualScore(this.actualScore)
-                .totalPossibleScore(this.totalPossibleScore)
-                .grade(this.grade.name())
-                .status(this.status.name())
-                .criticalViolationCount(this.criticalViolationCount)
-                .completionRate(this.getCompletionRate())
-                .summary(this.summary)
-                .recommendations(this.recommendations)
-                .createdAt(this.createdAt)
-                .updatedAt(this.updatedAt)
-                .completedAt(this.completedAt)
-                .build();
-    }
-
     @Override
     public String toString() {
         return "SelfAssessmentResult{" +
                 "id=" + id +
-                ", memberId=" + memberId +
-                ", userType=" + userType +
                 ", headquartersId=" + headquartersId +
+                ", partnerId=" + partnerId +
+                ", treePath='" + treePath + '\'' +
                 ", score=" + score +
-                ", grade=" + grade +
                 ", status=" + status +
                 ", criticalViolationCount=" + criticalViolationCount +
                 ", createdAt=" + createdAt +

@@ -1,7 +1,6 @@
 package com.nsmm.esg.csddd_service.dto.response;
 
 import com.nsmm.esg.csddd_service.enums.AnswerChoice;
-import com.nsmm.esg.csddd_service.enums.AssessmentGrade;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -11,8 +10,21 @@ import lombok.Setter;
 import java.time.LocalDateTime;
 
 /**
- * 자가진단 결과 중, 단일 문항의 응답 정보를 담는 DTO
- * - 클라이언트에게 개별 답변 정보를 전달할 때 사용됨
+ * CSDDD 자가진단 개별 답변 응답 DTO
+ * 
+ * 자가진단 결과 중 단일 문항의 응답 정보를 담는 DTO입니다.
+ * 클라이언트에게 문항별 상세 답변 정보를 전달할 때 사용됩니다.
+ * 
+ * 사용 용도:
+ * - 자가진단 상세 결과 조회
+ * - 문항별 답변 현황 분석
+ * - 위반 항목 필터링 및 표시
+ * - PDF 보고서 생성 시 상세 데이터
+ * 
+ * @author ESG Project Team
+ * @version 2.0
+ * @since 2024
+ * @lastModified 2024-12-20
  */
 @Getter
 @Setter
@@ -21,33 +33,84 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class SelfAssessmentAnswerDto {
 
-    // 답변 고유 ID (DB에서 자동 생성된 ID)
+    // ============================================================================
+    // 기본 식별 정보 (Basic Identification)
+    // ============================================================================
+
+    /**
+     * 답변 고유 식별자
+     * 데이터베이스에서 자동 생성된 Primary Key
+     */
     private Long id;
 
-    // 질문 식별자 (예: "1.1", "2.3")
+    // ============================================================================
+    // 질문 정보 (Question Information)
+    // ============================================================================
+
+    /**
+     * 질문 식별자
+     * 예시: "Q1_1", "Q2_3", "Q5_2" 등
+     * 각 질문을 고유하게 식별하는 코드
+     */
     private String questionId;
 
-    // 응답 선택지 (YES, NO, PARTIAL) — enum으로 관리됨
-    private AnswerChoice answer;
-
-    // 문항의 가중치 (점수 계산에 사용됨)
-    private Double weight;
-
-    // 중대 위반 여부
-    private Boolean criticalViolation;
-
-    // 문항 카테고리 (예: "인권", "환경", "윤리")
+    /**
+     * 질문 카테고리
+     * 예시: "인권및노동", "산업안전보건", "환경경영", "공급망및조달", "윤리경영및정보보호"
+     * CSDDD 5개 주요 평가 영역별 분류
+     */
     private String category;
 
-    // 응답 시 남긴 비고 또는 코멘트
+    // ============================================================================
+    // 응답 정보 (Answer Information)
+    // ============================================================================
+
+    /**
+     * 응답 선택지
+     * - YES: 완전 준수 (가중치 100% 적용)
+     * - NO: 미준수 (가중치 0% 적용)
+     * - PARTIAL: 부분 준수 (가중치 50% 적용)
+     */
+    private AnswerChoice answer;
+
+    /**
+     * 응답에 대한 부가 설명 및 비고사항
+     * 사용자가 답변과 함께 작성한 상세 설명이나 추가 정보
+     * 부분 준수인 경우 현재 진행 상황이나 계획 등을 포함
+     */
     private String remarks;
 
-    // 생성 시각 (DB에서 자동 설정)
+    // ============================================================================
+    // 평가 기준 정보 (Assessment Criteria)
+    // ============================================================================
+
+    /**
+     * 질문 가중치
+     * 각 질문의 중요도에 따른 가중치 값
+     * 점수 계산 시 사용되며, 높은 가중치일수록 전체 점수에 미치는 영향이 큼
+     */
+    private Double weight;
+
+    /**
+     * 중대위반 여부
+     * 해당 문항이 중대위반 항목인지 표시
+     * true인 경우 NO 답변 시 전체 등급에 영향을 미침
+     */
+    private Boolean criticalViolation;
+
+    // ============================================================================
+    // 타임스탬프 (Timestamps)
+    // ============================================================================
+
+    /**
+     * 답변 생성 일시
+     * 해당 문항에 대한 답변이 처음 입력된 시간
+     */
     private LocalDateTime createdAt;
 
-    // 마지막 수정 시각 (DB에서 자동 설정)
+    /**
+     * 답변 수정 일시
+     * 해당 문항에 대한 답변이 마지막으로 수정된 시간
+     */
     private LocalDateTime updatedAt;
-
-    // ✅ 추가: 해당 문항 위반 시 적용되는 자동 강등 등급
-    private AssessmentGrade criticalGrade;
 }
