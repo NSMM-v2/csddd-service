@@ -1,6 +1,7 @@
 package com.nsmm.esg.csddd_service.entity;
 
 import com.nsmm.esg.csddd_service.enums.AssessmentStatus;
+import com.nsmm.esg.csddd_service.enums.AssessmentGrade;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -82,6 +83,15 @@ public class SelfAssessmentResult {
     @Column(name = "tree_path", nullable = false, length = 500)
     private String treePath;
 
+    @Column(name = "company_name", nullable = false, length = 255)
+    private String companyName;
+
+    /**
+     * 사용자 유형
+     * - "HEADQUARTERS" 또는 "PARTNER" 구분용
+     */
+    @Column(name = "user_type", nullable = false, length = 30)
+    private String userType;
     // ============================================================================
     // 평가 점수 정보 (Assessment Scores)
     // ============================================================================
@@ -92,21 +102,23 @@ public class SelfAssessmentResult {
      * 90점 이상: A등급, 75점 이상: B등급, 60점 이상: C등급, 60점 미만: D등급
      */
     @Column(nullable = false)
-    private Integer score;
+    private double score;
 
     /**
      * 실제 획득 점수
      * 가중치가 적용된 실제 점수 (예: 34.5점)
      */
+    @Builder.Default
     @Column(name = "actual_score", nullable = false)
-    private Double actualScore;
+    private Double actualScore = 0.0;
 
     /**
      * 총 가능 점수
      * 해당 진단에서 획득 가능한 최대 점수 (예: 40.0점)
      */
+    @Builder.Default
     @Column(name = "total_possible_score", nullable = false)
-    private Double totalPossibleScore;
+    private Double totalPossibleScore = 0.0;
 
     // ============================================================================
     // 평가 상태 및 결과 정보 (Assessment Status & Results)
@@ -122,6 +134,15 @@ public class SelfAssessmentResult {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private AssessmentStatus status = AssessmentStatus.COMPLETED;
+
+    /**
+     * 최종 등급 (A~D)
+     * 점수 및 중대위반 여부에 따라 자동 결정
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "final_grade", length = 10)
+    private AssessmentGrade finalGrade;
+
 
     /**
      * 평가 요약
@@ -194,6 +215,18 @@ public class SelfAssessmentResult {
     }
 
     /**
+     * 진단 결과 기본 정보 수정
+     * - 본사/협력사 구분, 회사명, 트리 경로 등
+     */
+    public void updateResultInfo(String companyName, String userType, Long headquartersId, Long partnerId, String treePath) {
+        this.companyName = companyName;
+        this.userType = userType;
+        this.headquartersId = headquartersId;
+        this.partnerId = partnerId;
+        this.treePath = treePath;
+    }
+
+    /**
      * 완료율 계산
      * (실제 점수 / 총 가능 점수) * 100
      */
@@ -213,18 +246,28 @@ public class SelfAssessmentResult {
     }
 
     /**
+     * 진단 답변 리스트 설정
+     * - 점수 계산 전에 답변 목록을 연결해야 함
+     */
+    public void setAnswers(List<SelfAssessmentAnswer> answers) {
+        this.answers = answers;
+    }
+
+    /**
      * 평가 완료 처리
      * 최종 점수와 결과를 설정하고 완료 상태로 변경
      */
     public void finalizeAssessment(
-            int score,
+            double score,
             double actualScore,
             double totalScore,
+            AssessmentGrade finalGrade,
             String summary,
             String recommendations) {
         this.score = score;
         this.actualScore = actualScore;
         this.totalPossibleScore = totalScore;
+        this.finalGrade = finalGrade;
         this.summary = summary;
         this.recommendations = recommendations;
         this.criticalViolationCount = (int) answers.stream()

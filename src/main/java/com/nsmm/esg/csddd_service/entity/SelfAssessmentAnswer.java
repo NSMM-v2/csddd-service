@@ -1,6 +1,7 @@
 package com.nsmm.esg.csddd_service.entity;
 
-import com.nsmm.esg.csddd_service.enums.AnswerChoice;
+
+import com.nsmm.esg.csddd_service.enums.AssessmentGrade;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -73,15 +74,8 @@ public class SelfAssessmentAnswer {
     // 답변 정보 (Answer Information)
     // ============================================================================
 
-    /**
-     * 답변 선택지
-     * - YES: 완전 준수 (해당 요구사항을 완전히 충족)
-     * - NO: 미준수 (해당 요구사항을 전혀 충족하지 않음)
-     * - PARTIAL: 부분 준수 (해당 요구사항을 부분적으로 충족, 개선 중)
-     */
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 10)
-    private AnswerChoice answer;
+    @Column(nullable = false)
+    private boolean answer; // 응답 값: true = "예", false = "아니요"
 
     /**
      * 질문 가중치
@@ -112,6 +106,15 @@ public class SelfAssessmentAnswer {
     @Column(name = "critical_violation", nullable = false)
     private Boolean criticalViolation = false;
 
+    /**
+     * 중대위반 발생 시 적용되는 등급
+     * - 프론트에서 내려주는 값 저장용
+     * - 예: D, C, B 등
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "critical_grade", length = 5)
+    private AssessmentGrade criticalGrade;
+
     // ============================================================================
     // 연관 관계 (Relationships)
     // ============================================================================
@@ -136,36 +139,8 @@ public class SelfAssessmentAnswer {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt; // 수정 일시
 
-    // ============================================================================
-    // 편의 메서드 (Convenience Methods)
-    // ============================================================================
 
-    /**
-     * YES 답변 여부 확인
-     * 
-     * @return YES 답변인 경우 true
-     */
-    public boolean isYes() {
-        return this.answer == AnswerChoice.YES;
-    }
 
-    /**
-     * NO 답변 여부 확인
-     * 
-     * @return NO 답변인 경우 true
-     */
-    public boolean isNo() {
-        return this.answer == AnswerChoice.NO;
-    }
-
-    /**
-     * PARTIAL 답변 여부 확인
-     * 
-     * @return PARTIAL 답변인 경우 true
-     */
-    public boolean isPartial() {
-        return this.answer == AnswerChoice.PARTIAL;
-    }
 
     /**
      * 중대위반 여부 확인 (getter 메서드)
@@ -176,44 +151,8 @@ public class SelfAssessmentAnswer {
         return this.criticalViolation;
     }
 
-    /**
-     * 답변 수정
-     * 기존 답변과 비고사항을 새로운 값으로 업데이트
-     * 
-     * @param answer  새로운 답변 ("YES", "NO", "PARTIAL")
-     * @param remarks 새로운 비고사항
-     * @throws IllegalArgumentException 잘못된 답변 값인 경우
-     */
-    public void updateAnswer(String answer, String remarks) {
-        try {
-            this.answer = AnswerChoice.valueOf(answer.toUpperCase());
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Invalid answer value: " + answer);
-        }
-        this.remarks = remarks;
-    }
 
-    /**
-     * 가중치 적용된 점수 계산
-     * 답변에 따른 실제 획득 점수를 계산
-     * 
-     * @return 가중치가 적용된 점수
-     */
-    public Double getWeightedScore() {
-        if (weight == null) {
-            return 0.0;
-        }
 
-        switch (answer) {
-            case YES:
-                return weight; // 100% 점수
-            case PARTIAL:
-                return weight * 0.5; // 50% 점수
-            case NO:
-            default:
-                return 0.0; // 0% 점수
-        }
-    }
 
     @Override
     public String toString() {

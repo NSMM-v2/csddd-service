@@ -1,6 +1,5 @@
 package com.nsmm.esg.csddd_service.dto.response;
 
-import com.nsmm.esg.csddd_service.enums.AnswerChoice;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -11,20 +10,15 @@ import java.time.LocalDateTime;
 
 /**
  * CSDDD 자가진단 개별 답변 응답 DTO
- * 
+ *
  * 자가진단 결과 중 단일 문항의 응답 정보를 담는 DTO입니다.
  * 클라이언트에게 문항별 상세 답변 정보를 전달할 때 사용됩니다.
- * 
+ *
  * 사용 용도:
  * - 자가진단 상세 결과 조회
  * - 문항별 답변 현황 분석
  * - 위반 항목 필터링 및 표시
  * - PDF 보고서 생성 시 상세 데이터
- * 
- * @author ESG Project Team
- * @version 2.0
- * @since 2024
- * @lastModified 2024-12-20
  */
 @Getter
 @Setter
@@ -66,17 +60,15 @@ public class SelfAssessmentAnswerDto {
     // ============================================================================
 
     /**
-     * 응답 선택지
-     * - YES: 완전 준수 (가중치 100% 적용)
-     * - NO: 미준수 (가중치 0% 적용)
-     * - PARTIAL: 부분 준수 (가중치 50% 적용)
+     * 응답 결과
+     * true: "예" (요구사항 충족)
+     * false: "아니오" (요구사항 미충족)
      */
-    private AnswerChoice answer;
+    private boolean answer;
 
     /**
      * 응답에 대한 부가 설명 및 비고사항
      * 사용자가 답변과 함께 작성한 상세 설명이나 추가 정보
-     * 부분 준수인 경우 현재 진행 상황이나 계획 등을 포함
      */
     private String remarks;
 

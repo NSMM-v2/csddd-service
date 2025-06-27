@@ -1,5 +1,6 @@
 package com.nsmm.esg.csddd_service.dto.response;
 
+import com.nsmm.esg.csddd_service.entity.SelfAssessmentResult;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -7,22 +8,21 @@ import java.time.LocalDateTime;
 
 /**
  * CSDDD 자가진단 요약 응답 DTO
- * 
+ *
  * 클라이언트에게 진단 결과의 요약 정보만을 제공하는 DTO입니다.
  * 상세한 문항별 답변은 포함하지 않고, 전체적인 평가 결과만을 담습니다.
- * 
+ *
  * 사용 용도:
  * - 대시보드의 진단 결과 요약 표시
  * - 진단 결과 목록 조회
  * - 간단한 평가 현황 확인
- * 
+ *
  * 등급 계산:
- * - 백엔드에서는 점수만 제공
- * - 프론트엔드에서 점수를 기반으로 등급(A/B/C/D) 계산
- * - 90점 이상: A등급, 75점 이상: B등급, 60점 이상: C등급, 60점 미만: D등급
- * 
+ * - 백엔드에서 점수 및 중대위반을 기반으로 최종 등급(A/B/C/D) 결정
+ * - 프론트는 해당 값만 표시
+ *
  * @author ESG Project Team
- * @version 2.0
+ * @version 2.1
  * @since 2024
  * @lastModified 2024-12-20
  */
@@ -74,7 +74,7 @@ public class SelfAssessmentResponse {
      * 프론트엔드에서 등급 계산의 기준이 되는 점수
      * 계산 방식: (실제 점수 / 총 가능 점수) * 100
      */
-    private Integer score;
+    private double score;
 
     /**
      * 실제 획득 점수
@@ -97,8 +97,8 @@ public class SelfAssessmentResponse {
     /**
      * 진단 상태
      * - COMPLETED: 완료
-     * - IN_PROGRESS: 진행중 (향후 확장용)
-     * - CANCELLED: 취소됨 (향후 확장용)
+     * - IN_PROGRESS: 진행중
+     * - CANCELLED: 취소됨
      */
     private String status;
 
@@ -115,6 +115,12 @@ public class SelfAssessmentResponse {
      * 진단 결과의 달성도를 백분율로 표시
      */
     private Double completionRate;
+
+    /**
+     * 최종 등급 (A, B, C, D)
+     * 백엔드에서 점수 및 중대위반 여부를 기반으로 계산
+     */
+    private String finalGrade;
 
     /**
      * 진단 결과 요약
@@ -149,4 +155,24 @@ public class SelfAssessmentResponse {
      * 자가진단이 완료된 시간 (COMPLETED 상태일 때만 존재)
      */
     private LocalDateTime completedAt;
+
+    public static SelfAssessmentResponse from(SelfAssessmentResult result) {
+        return SelfAssessmentResponse.builder()
+                .id(result.getId())
+                .headquartersId(result.getHeadquartersId())
+                .partnerId(result.getPartnerId())
+                .treePath(result.getTreePath())
+                .score(result.getScore())
+                .actualScore(result.getActualScore())
+                .totalPossibleScore(result.getTotalPossibleScore())
+                .criticalViolationCount(result.getCriticalViolationCount())
+                .completionRate(result.getCompletionRate())
+                .finalGrade(result.getFinalGrade() != null ? result.getFinalGrade().name() : null)
+                .summary(result.getSummary())
+                .recommendations(result.getRecommendations())
+                .createdAt(result.getCreatedAt())
+                .updatedAt(result.getUpdatedAt())
+                .completedAt(result.getCompletedAt())
+                .build();
+    }
 }

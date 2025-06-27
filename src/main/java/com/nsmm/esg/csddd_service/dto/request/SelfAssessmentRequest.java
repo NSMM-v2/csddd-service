@@ -1,5 +1,6 @@
 package com.nsmm.esg.csddd_service.dto.request;
 
+import com.nsmm.esg.csddd_service.enums.AssessmentGrade;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -47,17 +48,15 @@ public class SelfAssessmentRequest {
 
     /**
      * 사용자 응답
-     * 가능한 값: "yes", "no", "partial"
-     * - yes: 완전 준수 (해당 요구사항을 완전히 충족)
-     * - no: 미준수 (해당 요구사항을 전혀 충족하지 않음)
-     * - partial: 부분 준수 (해당 요구사항을 부분적으로 충족, 개선 중)
+     * 가능한 값: "yes", "no"
+     * - yes: 요구사항을 충족함
+     * - no: 요구사항을 충족하지 않음
      */
     private String answer;
 
     /**
      * 응답에 대한 부가 설명 및 비고사항
      * 선택 입력 필드로, 답변에 대한 상세 설명이나 추가 정보를 기록
-     * 특히 partial 응답인 경우 현재 진행 상황이나 계획을 설명
      */
     private String remarks;
 
@@ -73,6 +72,11 @@ public class SelfAssessmentRequest {
      */
     private Double weight;
 
+    /**
+     * 중대위반 등급
+     * 프론트에서 내려주는 중대위반 문항의 등급 정보 (예: "D", "C" 등)
+     */
+    private AssessmentGrade criticalGrade;
     /**
      * 중대위반 여부
      * true인 경우 NO 답변 시 전체 등급에 영향을 미치는 중요한 문항
