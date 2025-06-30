@@ -5,7 +5,8 @@ import lombok.Builder;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
-
+import java.util.List;
+import java.util.stream.Collectors;
 /**
  * CSDDD 자가진단 요약 응답 DTO
  *
@@ -156,6 +157,9 @@ public class SelfAssessmentResponse {
      */
     private LocalDateTime completedAt;
 
+    private List<SelfAssessmentAnswerDto> answers;
+
+
     public static SelfAssessmentResponse from(SelfAssessmentResult result) {
         return SelfAssessmentResponse.builder()
                 .id(result.getId())
@@ -173,6 +177,9 @@ public class SelfAssessmentResponse {
                 .createdAt(result.getCreatedAt())
                 .updatedAt(result.getUpdatedAt())
                 .completedAt(result.getCompletedAt())
+                .answers(result.getAnswers().stream()
+                        .map(SelfAssessmentAnswerDto::from)
+                        .collect(Collectors.toList()))
                 .build();
     }
 }

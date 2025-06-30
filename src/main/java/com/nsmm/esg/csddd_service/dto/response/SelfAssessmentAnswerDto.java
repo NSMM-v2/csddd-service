@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
-
+import com.nsmm.esg.csddd_service.entity.SelfAssessmentAnswer;
 /**
  * CSDDD 자가진단 개별 답변 응답 DTO
  *
@@ -64,7 +64,7 @@ public class SelfAssessmentAnswerDto {
      * true: "예" (요구사항 충족)
      * false: "아니오" (요구사항 미충족)
      */
-    private boolean answer;
+    private String answer;
 
     /**
      * 응답에 대한 부가 설명 및 비고사항
@@ -105,4 +105,17 @@ public class SelfAssessmentAnswerDto {
      * 해당 문항에 대한 답변이 마지막으로 수정된 시간
      */
     private LocalDateTime updatedAt;
+    public static SelfAssessmentAnswerDto from(SelfAssessmentAnswer answer) {
+        return SelfAssessmentAnswerDto.builder()
+                .id(answer.getId())
+                .questionId(answer.getQuestionId())
+                .category(answer.getCategory())
+                .answer(answer.isAnswer() ? "yes" : "no")
+                .remarks(answer.getRemarks())
+                .weight(answer.getWeight())
+                .criticalViolation(answer.getCriticalViolation())
+                .createdAt(answer.getCreatedAt())
+                .updatedAt(answer.getUpdatedAt())
+                .build();
+    }
 }

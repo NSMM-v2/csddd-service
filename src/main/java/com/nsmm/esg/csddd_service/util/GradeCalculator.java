@@ -10,6 +10,13 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * CSDDD 자가진단 점수 및 등급 계산 유틸리티
+ * - 각 문항은 기본점수 2.5점이며 가중치(weight)가 곱해져 총점이 결정됨
+ * - YES 응답 항목만 실제 점수로 인정됨
+ * - 최종 점수는 100점 만점 기준으로 환산됨
+ * - 중대 위반 항목(NO 응답) 존재 시 등급은 자동 강등될 수 있음
+ */
 @Slf4j
 @Component
 public class GradeCalculator {
@@ -27,21 +34,25 @@ public class GradeCalculator {
             return;
         }
 
+        final double BASE_SCORE = 2.5;
+
         // 유효한 답변 필터링
         List<SelfAssessmentAnswer> validAnswers = answers.stream()
                 .filter(a -> a != null && a.getWeight() != null)
                 .toList();
 
-        double totalWeight = validAnswers.stream()
-                .mapToDouble(SelfAssessmentAnswer::getWeight)
+        // 총점 및 실제 점수 계산 (2.5 × weight)
+        double totalPossibleScore = validAnswers.stream()
+                .mapToDouble(a -> BASE_SCORE * a.getWeight())
                 .sum();
 
         double actualScore = validAnswers.stream()
-                .filter(a -> a.isAnswer())
-                .mapToDouble(SelfAssessmentAnswer::getWeight)
+                .filter(SelfAssessmentAnswer::isAnswer)
+                .mapToDouble(a -> BASE_SCORE * a.getWeight())
                 .sum();
 
-        int normalizedScore = totalWeight == 0 ? 0 : (int) Math.round((actualScore / totalWeight) * 100);
+        int normalizedScore = totalPossibleScore == 0 ? 0 :
+                (int) Math.round((actualScore / totalPossibleScore) * 100);
 
         // 중대위반 항목 중 사용자가 '아니오(false)'로 응답한 항목만 필터링
         List<AssessmentGrade> criticalGrades = validAnswers.stream()
@@ -71,9 +82,9 @@ public class GradeCalculator {
         };
 
         result.finalizeAssessment(
-                normalizedScore,   // 점수 (0~100)
-                actualScore,       // 실제 획득 점수
-                totalWeight,       // 총 가능 점수
+                normalizedScore,
+                actualScore,
+                totalPossibleScore,
                 finalGrade,
                 summary,
                 recommendation
