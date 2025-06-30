@@ -292,4 +292,8 @@ public class SelfAssessmentResult {
                 ", createdAt=" + createdAt +
                 '}';
     }
+
+    public void updateCriticalViolationCount(int count) {
+        this.criticalViolationCount = count;
+    }
 }

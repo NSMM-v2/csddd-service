@@ -65,6 +65,14 @@ public class SelfAssessmentService {
         result.setAnswers(answers); // 연관관계 설정
         gradeCalculator.evaluate(result);
 
+
+        // 3.5 중대위반 건수 계산 추가
+        long criticalCount = answers.stream()
+                .filter(a -> Boolean.TRUE.equals(a.getCriticalViolation()) && !a.isAnswer())
+                .count();
+        result.updateCriticalViolationCount((int) criticalCount);
+
+
         // 4. 저장
         answerRepository.saveAll(answers);     // 답변 저장
         resultRepository.save(result);         // 계산된 점수 포함하여 다시 저장
@@ -153,6 +161,6 @@ public class SelfAssessmentService {
      * "yes", "no" → boolean 변환
      */
     private boolean convertAnswerStringToBoolean(String answer) {
-        return "yes".equalsIgnoreCase(answer);
+        return answer != null && "yes".equalsIgnoreCase(answer.trim());
     }
 }

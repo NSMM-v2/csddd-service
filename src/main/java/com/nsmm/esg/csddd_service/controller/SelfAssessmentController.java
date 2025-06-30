@@ -42,7 +42,7 @@ public class SelfAssessmentController {
             @PathVariable Long resultId,
             @RequestHeader("X-USER-TYPE") String userType,
             @RequestHeader("X-HEADQUARTERS-ID") Long headquartersId,
-            @RequestHeader("X-PARTNER-ID") Long partnerId,
+            @RequestHeader(value = "X-PARTNER-ID", required = false) Long partnerId,
             @RequestHeader("X-TREE-PATH") String treePath
     ) {
         SelfAssessmentResult result = selfAssessmentService.getSelfAssessmentResult(
