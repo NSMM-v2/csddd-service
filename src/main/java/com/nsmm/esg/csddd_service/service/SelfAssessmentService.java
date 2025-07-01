@@ -120,19 +120,28 @@ public class SelfAssessmentService {
             String category,
             String startDate,
             String endDate,
-            Pageable pageable
+            Pageable pageable,
+            Boolean onlyPartners
     ) {
+        System.out.println("🔍 HQ: " + headquartersId + ", PartnerID: " + partnerId + ", TreePath: " + treePath + ", UserType: " + userType);
         Specification<SelfAssessmentResult> spec = (root, query, cb) -> {
             List<Predicate> predicates = new java.util.ArrayList<>();
 
             if ("PARTNER".equalsIgnoreCase(userType)) {
-                // partnerId 조건은 제거하고, treePath 기준으로 자기 자신 + 자식까지 조회
                 predicates.add(cb.equal(root.get("headquartersId"), headquartersId));
-                predicates.add(cb.like(root.get("treePath"), treePath + "%"));
+                if (treePath != null && !treePath.isEmpty()) {
+                    predicates.add(cb.like(root.get("treePath"), treePath + "%"));
+                } else if (partnerId != null) {
+                    predicates.add(cb.equal(root.get("partnerId"), partnerId));
+                }
             } else if ("HEADQUARTERS".equalsIgnoreCase(userType)) {
-                // 본사는 전체 treePath 하위 조회 (모든 파트너 포함)
                 predicates.add(cb.equal(root.get("headquartersId"), headquartersId));
-                predicates.add(cb.like(root.get("treePath"), treePath + "%"));
+
+                if (Boolean.TRUE.equals(onlyPartners)) {
+                    predicates.add(cb.isNotNull(root.get("partnerId")));
+                } else {
+                    predicates.add(cb.isNull(root.get("partnerId")));
+                }
             }
 
             if (companyName != null && !companyName.isEmpty()) {

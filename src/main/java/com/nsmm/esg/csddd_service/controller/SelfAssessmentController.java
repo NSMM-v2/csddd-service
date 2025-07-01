@@ -62,17 +62,26 @@ public class SelfAssessmentController {
             @RequestParam(required = false) String category,
             @RequestParam(required = false) String startDate,
             @RequestParam(required = false) String endDate,
+            @RequestParam(required = false) Boolean onlyPartners,
             @PageableDefault(size = 20) Pageable pageable,
             @RequestHeader("X-USER-TYPE") String userType,
             @RequestHeader("X-HEADQUARTERS-ID") Long headquartersId,
-            @RequestHeader(value = "X-PARTNER-ID", required = false) Long partnerId,
-            @RequestHeader("X-TREE-PATH") String treePath
+            @RequestHeader(value = "X-PARTNER-ID", required = false) String partnerIdRaw,
+            @RequestHeader(value = "X-TREE-PATH", required = false) String treePath
     ) {
-        Long resolvedPartnerId = partnerId;
+        System.out.println("📥 받은 X-PARTNER-ID: " + partnerIdRaw);
+        Long resolvedPartnerId = null;
+        if (partnerIdRaw != null && !partnerIdRaw.isEmpty()) {
+            try {
+                resolvedPartnerId = Long.valueOf(partnerIdRaw);
+            } catch (NumberFormatException e) {
+                System.out.println("⚠️ 파트너 ID 파싱 실패: " + partnerIdRaw);
+            }
+        }
         String resolvedTreePath = treePath;
-        if ("HEADQUARTERS".equalsIgnoreCase(userType)) {
-            resolvedPartnerId = null; // 본사는 본인 결과 + 전체 협력사
-        } else if ("PARTNER".equalsIgnoreCase(userType)) {
+        // Removed the logic that sets resolvedPartnerId to null for HEADQUARTERS userType
+
+        if ("PARTNER".equalsIgnoreCase(userType)) {
             // 1차 협력사는 자기 자신 + 자식들만 조회 가능
             // 2차 이하 협력사는 자기 자신만
             // 이 로직은 서비스에서 treePath 기반으로 필터링할 것
@@ -80,7 +89,7 @@ public class SelfAssessmentController {
 
         Page<SelfAssessmentResponse> resultPage = selfAssessmentService
                 .getSelfAssessmentResults(userType, headquartersId, resolvedPartnerId, resolvedTreePath,
-                        companyName, category, startDate, endDate, pageable)
+                        companyName, category, startDate, endDate, pageable, onlyPartners)
                 .map(SelfAssessmentResponse::from);
 
         return ResponseEntity.ok(ApiResponse.success(resultPage));
