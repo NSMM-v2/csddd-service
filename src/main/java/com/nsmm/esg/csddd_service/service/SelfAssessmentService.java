@@ -129,10 +129,18 @@ public class SelfAssessmentService {
 
             if ("PARTNER".equalsIgnoreCase(userType)) {
                 predicates.add(cb.equal(root.get("headquartersId"), headquartersId));
-                if (treePath != null && !treePath.isEmpty()) {
-                    predicates.add(cb.like(root.get("treePath"), treePath + "%"));
-                } else if (partnerId != null) {
-                    predicates.add(cb.equal(root.get("partnerId"), partnerId));
+
+                if (Boolean.TRUE.equals(onlyPartners)) {
+                    // partnerEvaluation: 하위 파트너만 (자기 제외)
+                    if (treePath != null && !treePath.isEmpty()) {
+                        predicates.add(cb.like(root.get("treePath"), treePath + "/%"));
+                        predicates.add(cb.notEqual(root.get("treePath"), treePath));
+                    }
+                } else {
+                    // evaluation: 자기 결과만
+                    if (treePath != null && !treePath.isEmpty()) {
+                        predicates.add(cb.equal(root.get("treePath"), treePath));
+                    }
                 }
             } else if ("HEADQUARTERS".equalsIgnoreCase(userType)) {
                 predicates.add(cb.equal(root.get("headquartersId"), headquartersId));

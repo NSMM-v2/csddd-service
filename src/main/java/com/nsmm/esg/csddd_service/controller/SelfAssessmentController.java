@@ -3,8 +3,10 @@ package com.nsmm.esg.csddd_service.controller;
 import com.nsmm.esg.csddd_service.dto.ApiResponse;
 import com.nsmm.esg.csddd_service.dto.request.SelfAssessmentSubmitRequest;
 import com.nsmm.esg.csddd_service.dto.response.SelfAssessmentResponse;
+import com.nsmm.esg.csddd_service.dto.response.ViolationMeta;
 import com.nsmm.esg.csddd_service.entity.SelfAssessmentResult;
 import com.nsmm.esg.csddd_service.service.SelfAssessmentService;
+import com.nsmm.esg.csddd_service.util.ViolationMetaMap;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -50,7 +52,17 @@ public class SelfAssessmentController {
         );
         return ResponseEntity.ok(ApiResponse.success(SelfAssessmentResponse.from(result)));
     }
-
+    @GetMapping("/violation-meta/{questionId}")
+    public ResponseEntity<ApiResponse<ViolationMeta>> getViolationMeta(
+            @PathVariable String questionId,
+            @RequestHeader("X-USER-TYPE") String userType,
+            @RequestHeader("X-HEADQUARTERS-ID") String headquartersId,
+            @RequestHeader(value = "X-PARTNER-ID", required = false) String partnerId,
+            @RequestHeader(value = "X-TREE-PATH", required = false) String treePath
+    ) {
+        ViolationMeta meta = ViolationMetaMap.get(questionId);
+        return ResponseEntity.ok(ApiResponse.success(meta));
+    }
     /**
      * 자가진단 결과 목록 조회 (Read - 페이징)
      * - 본사: partnerId 없이 조회
