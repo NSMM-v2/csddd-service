@@ -10,5 +10,6 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
  * - 조건 검색을 위한 Specification 기능 지원
  */
 public interface SelfAssessmentResultRepository extends JpaRepository<SelfAssessmentResult, Long>,
-        JpaSpecificationExecutor<SelfAssessmentResult> {
+
+                JpaSpecificationExecutor<SelfAssessmentResult> {
 }
