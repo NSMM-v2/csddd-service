@@ -1,17 +1,38 @@
 package com.nsmm.esg.csddd_service.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.NoArgsConstructor;
 
-@Data
+/**
+ * CSDDD 카테고리별 분석 결과 DTO
+ * 
+ * 5개 주요 평가 영역별 점수 및 상태 분석 결과
+ * 자가진단 상세 조회 시 카테고리별 현황 제공
+ * 
+ * @author ESG Project Team
+ * @version 2.0
+ */
+@Schema(description = "카테고리별 분석 결과")
+@Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class CategoryAnalysisDto {
-    private String category;      // 영역명
-    private int score;            // 정규화 점수 (0~100)
-    private String status;        // "우수" | "보통" | "개선 필요"
-    private String color;         // UI 색상용 (green/yellow/red 등)
+
+    @Schema(description = "카테고리명", example = "인권및노동")
+    private String category;
+
+    @Schema(description = "카테고리별 점수 (0~100)", example = "85")
+    private int score;
+
+    @Schema(description = "평가 상태", example = "우수", allowableValues = { "우수", "보통", "개선필요" })
+    private String status;
+
+    @Schema(description = "UI 표시용 색상", example = "green", allowableValues = { "green", "yellow", "red" })
+    private String color;
 }

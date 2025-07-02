@@ -2,7 +2,7 @@ package com.nsmm.esg.csddd_service.controller;
 
 import com.nsmm.esg.csddd_service.dto.ApiResponse;
 import com.nsmm.esg.csddd_service.dto.request.SelfAssessmentSubmitRequest;
-import com.nsmm.esg.csddd_service.dto.response.SelfAssessmentResponse;
+import com.nsmm.esg.csddd_service.dto.response.SelfAssessmentResultResponse;
 import com.nsmm.esg.csddd_service.dto.response.ViolationMeta;
 import com.nsmm.esg.csddd_service.entity.SelfAssessmentResult;
 import com.nsmm.esg.csddd_service.service.SelfAssessmentService;
@@ -40,7 +40,7 @@ public class SelfAssessmentController {
      * 자가진단 결과 단건 조회 (Read)
      */
     @GetMapping("/{resultId}")
-    public ResponseEntity<ApiResponse<SelfAssessmentResponse>> getSelfAssessmentResult(
+    public ResponseEntity<ApiResponse<SelfAssessmentResultResponse>> getSelfAssessmentResult(
             @PathVariable Long resultId,
             @RequestHeader("X-USER-TYPE") String userType,
             @RequestHeader("X-HEADQUARTERS-ID") Long headquartersId,
@@ -50,7 +50,7 @@ public class SelfAssessmentController {
         SelfAssessmentResult result = selfAssessmentService.getSelfAssessmentResult(
                 resultId, userType, headquartersId, partnerId, treePath
         );
-        return ResponseEntity.ok(ApiResponse.success(SelfAssessmentResponse.from(result)));
+        return ResponseEntity.ok(ApiResponse.success(SelfAssessmentResultResponse.from(result)));
     }
     @GetMapping("/violation-meta/{questionId}")
     public ResponseEntity<ApiResponse<ViolationMeta>> getViolationMeta(
@@ -69,7 +69,7 @@ public class SelfAssessmentController {
      * - 협력사: 본사 + partnerId로 조회
      */
     @GetMapping("/results")
-    public ResponseEntity<ApiResponse<Page<SelfAssessmentResponse>>> getSelfAssessmentResults(
+    public ResponseEntity<ApiResponse<Page<SelfAssessmentResultResponse>>> getSelfAssessmentResults(
             @RequestParam(required = false) String companyName,
             @RequestParam(required = false) String category,
             @RequestParam(required = false) String startDate,
@@ -99,10 +99,10 @@ public class SelfAssessmentController {
             // 이 로직은 서비스에서 treePath 기반으로 필터링할 것
         }
 
-        Page<SelfAssessmentResponse> resultPage = selfAssessmentService
+        Page<SelfAssessmentResultResponse> resultPage = selfAssessmentService
                 .getSelfAssessmentResults(userType, headquartersId, resolvedPartnerId, resolvedTreePath,
                         companyName, category, startDate, endDate, pageable, onlyPartners)
-                .map(SelfAssessmentResponse::from);
+                .map(SelfAssessmentResultResponse::from);
 
         return ResponseEntity.ok(ApiResponse.success(resultPage));
     }

@@ -14,16 +14,24 @@ import java.util.List;
 /**
  * CSDDD 자가진단 결과 엔티티
  * 
- * 본사와 협력사의 CSDDD 자가진단 결과를 저장하는 엔티티입니다.
- * Scope3 방식과 동일하게 headquartersId/partnerId로 사용자를 구분합니다.
+ * 본사와 협력사의 CSDDD 자가진단 결과를 저장하는 엔티티
+ * 조직 계층 구조를 지원하며 권한 기반 데이터 접근을 제공
+ * 
+ * 주요 기능:
+ * - 자가진단 결과 데이터 저장 및 관리
+ * - 점수 계산 및 등급 산정 지원
+ * - 중대위반 추적 및 관리
+ * - 조직 계층별 권한 제어
  * 
  * 사용자 구분 방식:
- * - 본사: partnerId가 null, headquartersId가 자신의 ID
- * - 협력사: partnerId가 존재, headquartersId는 소속 본사 ID
+ * - 본사: partnerId = null, headquartersId = 자신의 ID
+ * - 협력사: partnerId = 협력사 ID, headquartersId = 소속 본사 ID
  * 
- * 등급 계산:
- * - 백엔드에서는 수치값(점수)만 저장
- * - 프론트엔드에서 점수를 기반으로 등급(A/B/C/D) 계산
+ * 등급 체계:
+ * - A등급: 90점 이상
+ * - B등급: 75점 이상 90점 미만
+ * - C등급: 60점 이상 75점 미만
+ * - D등급: 60점 미만 또는 중대위반 발생
  * 
  * @author ESG Project Team
  * @version 2.0
@@ -57,54 +65,53 @@ public class SelfAssessmentResult {
 
     /**
      * 소속 본사 ID
-     * - 본사인 경우: 자신의 본사 ID
-     * - 협력사인 경우: 소속된 본사의 ID
-     * Auth Service의 JWT 토큰에서 제공되는 headquartersId와 매핑
+     * 본사인 경우 자신의 ID, 협력사인 경우 소속 본사의 ID
      */
     @Column(name = "headquarters_id", nullable = false)
     private Long headquartersId;
 
     /**
      * 협력사 ID
-     * - 본사인 경우: null
-     * - 협력사인 경우: 해당 협력사의 ID
-     * Auth Service의 JWT 토큰에서 제공되는 partnerId와 매핑
+     * 본사인 경우 null, 협력사인 경우 해당 협력사의 ID
      */
     @Column(name = "partner_id")
     private Long partnerId;
 
     /**
-     * 조직 트리 경로
-     * 권한 검증 및 계층 구조 관리를 위한 경로 정보
-     * 형식: "HQ001" (본사) 또는 "HQ001/L1-001/L2-003" (협력사)
+     * 조직 계층 경로
+     * 권한 검증 및 계층 구조 관리용 경로 (예: HQ001, HQ001/L1-001/L2-003)
      */
     @Column(name = "tree_path", nullable = false, length = 500)
     private String treePath;
 
+    /**
+     * 회사명
+     * 자가진단을 수행한 조직의 회사명
+     */
     @Column(name = "company_name", nullable = false, length = 255)
     private String companyName;
 
     /**
      * 사용자 유형
-     * - "HEADQUARTERS" 또는 "PARTNER" 구분용
+     * HEADQUARTERS 또는 PARTNER 구분
      */
     @Column(name = "user_type", nullable = false, length = 30)
     private String userType;
+
     // ============================================================================
     // 평가 점수 정보 (Assessment Scores)
     // ============================================================================
 
     /**
      * 정규화된 점수 (0~100)
-     * 프론트엔드에서 등급 계산의 기준이 되는 점수
-     * 90점 이상: A등급, 75점 이상: B등급, 60점 이상: C등급, 60점 미만: D등급
+     * 등급 계산의 기준이 되는 백분율 점수
      */
     @Column(nullable = false)
     private double score;
 
     /**
      * 실제 획득 점수
-     * 가중치가 적용된 실제 점수 (예: 34.5점)
+     * 가중치가 적용된 실제 점수 합계
      */
     @Builder.Default
     @Column(name = "actual_score", nullable = false)
@@ -112,7 +119,7 @@ public class SelfAssessmentResult {
 
     /**
      * 총 가능 점수
-     * 해당 진단에서 획득 가능한 최대 점수 (예: 40.0점)
+     * 해당 진단에서 획득 가능한 최대 점수
      */
     @Builder.Default
     @Column(name = "total_possible_score", nullable = false)
@@ -124,9 +131,7 @@ public class SelfAssessmentResult {
 
     /**
      * 진단 상태
-     * - COMPLETED: 완료
-     * - IN_PROGRESS: 진행중 (향후 확장용)
-     * - CANCELLED: 취소됨 (향후 확장용)
+     * COMPLETED(완료), IN_PROGRESS(진행중), CANCELLED(취소됨)
      */
     @Builder.Default
     @Enumerated(EnumType.STRING)
@@ -134,13 +139,12 @@ public class SelfAssessmentResult {
     private AssessmentStatus status = AssessmentStatus.COMPLETED;
 
     /**
-     * 최종 등급 (A~D)
-     * 점수 및 중대위반 여부에 따라 자동 결정
+     * 최종 등급
+     * 점수 및 중대위반 여부에 따라 결정되는 최종 등급
      */
     @Enumerated(EnumType.STRING)
     @Column(name = "final_grade", length = 10)
     private AssessmentGrade finalGrade;
-
 
     /**
      * 평가 요약
@@ -151,15 +155,14 @@ public class SelfAssessmentResult {
 
     /**
      * 개선 권고사항
-     * 진단 결과를 바탕으로 한 구체적인 개선 방안 제시
+     * 진단 결과를 바탕으로 한 구체적인 개선 방안
      */
     @Column(length = 2000)
     private String recommendations;
 
     /**
      * 중대위반 건수
-     * 중대위반으로 분류된 항목의 개수
-     * 중대위반이 있는 경우 등급이 자동으로 강등됨
+     * 중대위반으로 분류된 항목의 개수 (등급 강등 적용)
      */
     @Builder.Default
     @Column(name = "critical_violation_count", nullable = false)
@@ -171,7 +174,7 @@ public class SelfAssessmentResult {
 
     /**
      * 자가진단 답변 목록
-     * 하나의 진단 결과에 여러 개의 답변이 포함됨
+     * 하나의 진단 결과에 포함된 모든 문항 답변
      */
     @OneToMany(mappedBy = "result", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
@@ -193,12 +196,14 @@ public class SelfAssessmentResult {
     private LocalDateTime completedAt; // 완료 일시
 
     // ============================================================================
-    // 편의 메서드 (Convenience Methods)
+    // 비즈니스 메서드 (Business Methods)
     // ============================================================================
 
     /**
      * 본사 여부 확인
      * partnerId가 null인 경우 본사로 판단
+     * 
+     * @return 본사인 경우 true
      */
     public boolean isHeadquarters() {
         return this.partnerId == null;
@@ -207,16 +212,37 @@ public class SelfAssessmentResult {
     /**
      * 협력사 여부 확인
      * partnerId가 존재하는 경우 협력사로 판단
+     * 
+     * @return 협력사인 경우 true
      */
     public boolean isPartner() {
         return this.partnerId != null;
     }
 
     /**
-     * 진단 결과 기본 정보 수정
-     * - 본사/협력사 구분, 회사명, 트리 경로 등
+     * 진단 답변 목록 할당
+     * 양방향 연관관계 설정 및 답변 목록 복사본 생성
+     * 
+     * @param answers 할당할 답변 목록
      */
-    public void updateResultInfo(String companyName, String userType, Long headquartersId, Long partnerId, String treePath) {
+    public void assignAnswers(List<SelfAssessmentAnswer> answers) {
+        this.answers = new ArrayList<>(answers);
+        // 양방향 연관관계 설정
+        answers.forEach(answer -> answer.assignToResult(this));
+    }
+
+    /**
+     * 진단 결과 기본 정보 업데이트
+     * 회사 정보 및 조직 계층 정보 수정
+     * 
+     * @param companyName    회사명
+     * @param userType       사용자 유형
+     * @param headquartersId 본사 ID
+     * @param partnerId      협력사 ID
+     * @param treePath       계층 경로
+     */
+    public void updateBasicInfo(String companyName, String userType, Long headquartersId, Long partnerId,
+            String treePath) {
         this.companyName = companyName;
         this.userType = userType;
         this.headquartersId = headquartersId;
@@ -225,35 +251,15 @@ public class SelfAssessmentResult {
     }
 
     /**
-     * 완료율 계산
-     * (실제 점수 / 총 가능 점수) * 100
-     */
-    public Double getCompletionRate() {
-        if (totalPossibleScore == null || totalPossibleScore == 0) {
-            return 0.0;
-        }
-        return (actualScore / totalPossibleScore) * 100;
-    }
-
-    /**
-     * 고위험 여부 판단
-     * 점수가 60점 미만이거나 중대위반이 있는 경우
-     */
-    public boolean isHighRisk() {
-        return score < 60 || criticalViolationCount > 0;
-    }
-
-    /**
-     * 진단 답변 리스트 설정
-     * - 점수 계산 전에 답변 목록을 연결해야 함
-     */
-    public void setAnswers(List<SelfAssessmentAnswer> answers) {
-        this.answers = answers;
-    }
-
-    /**
      * 평가 완료 처리
      * 최종 점수와 결과를 설정하고 완료 상태로 변경
+     * 
+     * @param score           정규화된 점수
+     * @param actualScore     실제 획득 점수
+     * @param totalScore      총 가능 점수
+     * @param finalGrade      최종 등급
+     * @param summary         평가 요약
+     * @param recommendations 개선 권고사항
      */
     public void finalizeAssessment(
             double score,
@@ -268,30 +274,47 @@ public class SelfAssessmentResult {
         this.finalGrade = finalGrade;
         this.summary = summary;
         this.recommendations = recommendations;
-        this.criticalViolationCount = (int) answers.stream()
-                .filter(SelfAssessmentAnswer::getCriticalViolation)
-                .count();
         this.status = AssessmentStatus.COMPLETED;
+
+        // 완료 시간 설정 (최초 완료 시에만)
         if (this.completedAt == null) {
             this.completedAt = LocalDateTime.now();
         }
+
+        // 중대위반 건수 재계산
+        updateCriticalViolationCount();
     }
 
-    @Override
-    public String toString() {
-        return "SelfAssessmentResult{" +
-                "id=" + id +
-                ", headquartersId=" + headquartersId +
-                ", partnerId=" + partnerId +
-                ", treePath='" + treePath + '\'' +
-                ", score=" + score +
-                ", status=" + status +
-                ", criticalViolationCount=" + criticalViolationCount +
-                ", createdAt=" + createdAt +
-                '}';
+    /**
+     * 중대위반 건수 업데이트
+     * 답변 목록에서 중대위반 발생 건수를 계산하여 업데이트
+     */
+    public void updateCriticalViolationCount() {
+        this.criticalViolationCount = (int) answers.stream()
+                .filter(SelfAssessmentAnswer::hasCriticalViolation)
+                .count();
     }
 
-    public void updateCriticalViolationCount(int count) {
-        this.criticalViolationCount = count;
+    /**
+     * 완료율 계산
+     * 실제 점수 대비 총 가능 점수의 백분율
+     * 
+     * @return 완료율 (0~100)
+     */
+    public Double calculateCompletionRate() {
+        if (totalPossibleScore == null || totalPossibleScore == 0) {
+            return 0.0;
+        }
+        return (actualScore / totalPossibleScore) * 100;
+    }
+
+    /**
+     * 고위험 여부 판단
+     * 점수 60점 미만이거나 중대위반이 있는 경우 고위험으로 분류
+     * 
+     * @return 고위험인 경우 true
+     */
+    public boolean isHighRisk() {
+        return score < 60.0 || criticalViolationCount > 0;
     }
 }

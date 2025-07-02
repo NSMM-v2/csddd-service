@@ -1,31 +1,46 @@
 package com.nsmm.esg.csddd_service.dto.request;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.util.List;
 
 /**
- * CSDDD 자가진단 전체 제출 요청 DTO
- *
- * - 기업명 + 질문 리스트를 함께 전송
- * - 프론트엔드에서 제출 버튼 클릭 시 이 형식으로 백엔드에 전달
- *
- * @author ESG Project
+ * CSDDD 자가진단 제출 요청 DTO
+ * 
+ * 전체 자가진단 결과를 한 번에 제출할 때 사용하는 요청 객체
+ * 회사 정보와 모든 문항에 대한 답변을 포함
+ * 
+ * @author ESG Project Team
+ * @version 2.0
  */
+@Schema(description = "CSDDD 자가진단 제출 요청")
 @Getter
 @Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class SelfAssessmentSubmitRequest {
 
     /**
-     * 제출한 회사명
-     * (선택 사항 - 추후 사용 가능)
+     * 자가진단을 수행한 회사명
+     * 본사 또는 협력사의 회사명
      */
+    @Schema(description = "회사명", example = "삼성전자")
+    @NotBlank(message = "회사명은 필수입니다.")
     private String companyName;
 
     /**
-     * 자가진단 질문 응답 리스트
-     * - 각 항목은 SelfAssessmentRequest로 구성됨
+     * 자가진단 문항별 답변 목록
+     * 모든 문항에 대한 응답을 포함해야 함
      */
-    private List<SelfAssessmentRequest> answers;
+    @Schema(description = "자가진단 답변 목록")
+    @NotEmpty(message = "답변 목록은 비어있을 수 없습니다.")
+    @Valid
+    private List<SelfAssessmentAnswerRequest> answers;
 }
