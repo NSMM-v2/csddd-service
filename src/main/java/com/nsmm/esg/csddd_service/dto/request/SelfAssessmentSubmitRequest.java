@@ -12,7 +12,6 @@ import java.util.List;
  * - 프론트엔드에서 제출 버튼 클릭 시 이 형식으로 백엔드에 전달
  *
  * @author ESG Project
- * @since 2024
  */
 @Getter
 @Setter

@@ -81,13 +81,13 @@ public class SelfAssessmentController {
             @RequestHeader(value = "X-PARTNER-ID", required = false) String partnerIdRaw,
             @RequestHeader(value = "X-TREE-PATH", required = false) String treePath
     ) {
-        System.out.println("📥 받은 X-PARTNER-ID: " + partnerIdRaw);
+        System.out.println("받은 X-PARTNER-ID: " + partnerIdRaw);
         Long resolvedPartnerId = null;
         if (partnerIdRaw != null && !partnerIdRaw.isEmpty()) {
             try {
                 resolvedPartnerId = Long.valueOf(partnerIdRaw);
             } catch (NumberFormatException e) {
-                System.out.println("⚠️ 파트너 ID 파싱 실패: " + partnerIdRaw);
+                System.out.println("파트너 ID 파싱 실패: " + partnerIdRaw);
             }
         }
         String resolvedTreePath = treePath;
