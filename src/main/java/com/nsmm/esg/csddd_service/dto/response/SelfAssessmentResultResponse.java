@@ -86,6 +86,9 @@ public class SelfAssessmentResultResponse {
     @Schema(description = "중대위반 건수", example = "0")
     private Integer criticalViolationCount;
 
+    @Schema(description = "아니오 답변 총 개수", example = "5")
+    private Integer noAnswerCount;
+
     @Schema(description = "고위험 여부", example = "false")
     private Boolean isHighRisk;
 
@@ -146,6 +149,7 @@ public class SelfAssessmentResultResponse {
                 .status(result.getStatus().name())
                 .finalGrade(result.getFinalGrade() != null ? result.getFinalGrade().name() : null)
                 .criticalViolationCount(result.getCriticalViolationCount())
+                .noAnswerCount(result.getNoAnswerCount())
                 .isHighRisk(result.isHighRisk())
                 .summary(result.getSummary())
                 .recommendations(result.getRecommendations())
@@ -173,6 +177,7 @@ public class SelfAssessmentResultResponse {
                 .status(result.getStatus().name())
                 .finalGrade(result.getFinalGrade() != null ? result.getFinalGrade().name() : null)
                 .criticalViolationCount(result.getCriticalViolationCount())
+                .noAnswerCount(result.getNoAnswerCount())
                 .isHighRisk(result.isHighRisk())
                 .summary(result.getSummary())
                 .recommendations(result.getRecommendations())

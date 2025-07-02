@@ -13,26 +13,26 @@ import java.util.List;
 
 /**
  * CSDDD 자가진단 결과 엔티티
- * 
+ *
  * 본사와 협력사의 CSDDD 자가진단 결과를 저장하는 엔티티
  * 조직 계층 구조를 지원하며 권한 기반 데이터 접근을 제공
- * 
+ *
  * 주요 기능:
  * - 자가진단 결과 데이터 저장 및 관리
  * - 점수 계산 및 등급 산정 지원
  * - 중대위반 추적 및 관리
  * - 조직 계층별 권한 제어
- * 
+ *
  * 사용자 구분 방식:
  * - 본사: partnerId = null, headquartersId = 자신의 ID
  * - 협력사: partnerId = 협력사 ID, headquartersId = 소속 본사 ID
- * 
+ *
  * 등급 체계:
  * - A등급: 90점 이상
  * - B등급: 75점 이상 90점 미만
  * - C등급: 60점 이상 75점 미만
  * - D등급: 60점 미만 또는 중대위반 발생
- * 
+ *
  * @author ESG Project Team
  * @version 2.0
  */
@@ -168,6 +168,14 @@ public class SelfAssessmentResult {
     @Column(name = "critical_violation_count", nullable = false)
     private Integer criticalViolationCount = 0;
 
+    /**
+     * 아니오 답변 총 개수
+     * 모든 문항에서 "아니오(false)"로 답변한 항목의 총 개수
+     */
+    @Builder.Default
+    @Column(name = "no_answer_count", nullable = false)
+    private Integer noAnswerCount = 0;
+
     // ============================================================================
     // 연관 관계 (Relationships)
     // ============================================================================
@@ -202,7 +210,7 @@ public class SelfAssessmentResult {
     /**
      * 본사 여부 확인
      * partnerId가 null인 경우 본사로 판단
-     * 
+     *
      * @return 본사인 경우 true
      */
     public boolean isHeadquarters() {
@@ -212,7 +220,7 @@ public class SelfAssessmentResult {
     /**
      * 협력사 여부 확인
      * partnerId가 존재하는 경우 협력사로 판단
-     * 
+     *
      * @return 협력사인 경우 true
      */
     public boolean isPartner() {
@@ -222,7 +230,7 @@ public class SelfAssessmentResult {
     /**
      * 진단 답변 목록 할당
      * 양방향 연관관계 설정 및 답변 목록 복사본 생성
-     * 
+     *
      * @param answers 할당할 답변 목록
      */
     public void assignAnswers(List<SelfAssessmentAnswer> answers) {
@@ -234,7 +242,7 @@ public class SelfAssessmentResult {
     /**
      * 진단 결과 기본 정보 업데이트
      * 회사 정보 및 조직 계층 정보 수정
-     * 
+     *
      * @param companyName    회사명
      * @param userType       사용자 유형
      * @param headquartersId 본사 ID
@@ -242,7 +250,7 @@ public class SelfAssessmentResult {
      * @param treePath       계층 경로
      */
     public void updateBasicInfo(String companyName, String userType, Long headquartersId, Long partnerId,
-            String treePath) {
+                                String treePath) {
         this.companyName = companyName;
         this.userType = userType;
         this.headquartersId = headquartersId;
@@ -253,7 +261,7 @@ public class SelfAssessmentResult {
     /**
      * 평가 완료 처리
      * 최종 점수와 결과를 설정하고 완료 상태로 변경
-     * 
+     *
      * @param score           정규화된 점수
      * @param actualScore     실제 획득 점수
      * @param totalScore      총 가능 점수
@@ -281,8 +289,17 @@ public class SelfAssessmentResult {
             this.completedAt = LocalDateTime.now();
         }
 
-        // 중대위반 건수 재계산
+        // 중대위반 건수 및 아니오 답변 건수 재계산
+        updateViolationCounts();
+    }
+
+    /**
+     * 위반 관련 건수 업데이트
+     * 중대위반 건수와 아니오 답변 총 건수를 모두 업데이트
+     */
+    public void updateViolationCounts() {
         updateCriticalViolationCount();
+        updateNoAnswerCount();
     }
 
     /**
@@ -296,9 +313,19 @@ public class SelfAssessmentResult {
     }
 
     /**
+     * 아니오 답변 건수 업데이트
+     * 답변 목록에서 "아니오(false)"로 답변한 모든 항목의 개수를 계산하여 업데이트
+     */
+    public void updateNoAnswerCount() {
+        this.noAnswerCount = (int) answers.stream()
+                .filter(answer -> !answer.isAnswer()) // answer가 false인 경우
+                .count();
+    }
+
+    /**
      * 완료율 계산
      * 실제 점수 대비 총 가능 점수의 백분율
-     * 
+     *
      * @return 완료율 (0~100)
      */
     public Double calculateCompletionRate() {
@@ -311,10 +338,11 @@ public class SelfAssessmentResult {
     /**
      * 고위험 여부 판단
      * 점수 60점 미만이거나 중대위반이 있는 경우 고위험으로 분류
-     * 
+     *
      * @return 고위험인 경우 true
      */
     public boolean isHighRisk() {
         return score < 60.0 || criticalViolationCount > 0;
     }
+
 }
