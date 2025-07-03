@@ -251,15 +251,20 @@ public class SelfAssessmentService {
             predicates.add(cb.equal(root.get("headquartersId"), headquartersId));
 
             if (Boolean.TRUE.equals(onlyPartners)) {
-                // 하위 협력사 결과만 조회
+                // 하위 협력사 결과만 조회 - treePath 기반
                 if (treePath != null && !treePath.isEmpty()) {
-                    predicates.add(cb.like(root.get("treePath"), treePath + "/%"));
+                    // 현재 협력사가 /1/L1-001/인 경우
+                    // 하위는 /1/L1-001/L2-001/, /1/L1-001/L2-002/ 등
+                    predicates.add(cb.like(root.get("treePath"), treePath + "%"));
                     predicates.add(cb.notEqual(root.get("treePath"), treePath));
+                    predicates.add(cb.isNotNull(root.get("partnerId"))); // 협력사만
+
+                    log.debug("하위 협력사 조회: treePath starts with {} but not equal", treePath);
                 }
             } else {
                 // 자신의 결과만 조회
-                if (treePath != null && !treePath.isEmpty()) {
-                    predicates.add(cb.equal(root.get("treePath"), treePath));
+                if (partnerId != null) {
+                    predicates.add(cb.equal(root.get("partnerId"), partnerId));
                 }
             }
         } else if ("HEADQUARTERS".equalsIgnoreCase(userType)) {
