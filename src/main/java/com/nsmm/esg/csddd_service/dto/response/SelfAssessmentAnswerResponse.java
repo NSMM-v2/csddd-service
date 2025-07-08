@@ -39,12 +39,8 @@ public class SelfAssessmentAnswerResponse {
     @Schema(description = "문항 카테고리", example = "인권및노동")
     private String category;
 
-    // 일관성을 위해 Boolean 타입 사용 (Response와 통일)
     @Schema(description = "사용자 응답", example = "true")
     private Boolean answer;
-
-    @Schema(description = "답변 부가 설명")
-    private String remarks;
 
     @Schema(description = "문항 가중치", example = "2.5")
     private Double weight;
@@ -75,8 +71,7 @@ public class SelfAssessmentAnswerResponse {
                 .id(answer.getId())
                 .questionId(answer.getQuestionId())
                 .category(answer.getCategory())
-                .answer(answer.isAnswer()) // Boolean으로 통일
-                .remarks(answer.getRemarks())
+                .answer(answer.isAnswer())
                 .weight(answer.getWeight())
                 .earnedScore(answer.calculateScore())
                 .criticalViolation(answer.getCriticalViolation())
@@ -87,10 +82,4 @@ public class SelfAssessmentAnswerResponse {
                 .build();
     }
 
-    /**
-     * 문자열 형태 답변 반환 (필요한 경우)
-     */
-    public String getAnswerAsString() {
-        return this.answer ? "yes" : "no";
-    }
 }

@@ -85,12 +85,7 @@ public class SelfAssessmentAnswer {
     @Column(nullable = false)
     private Double weight;
 
-    /**
-     * 답변 부가 설명
-     * 응답에 대한 상세 설명이나 추가 정보 (선택 사항)
-     */
-    @Column(length = 500)
-    private String remarks;
+
 
     // ============================================================================
     // 중대위반 정보 (Critical Violation Information)

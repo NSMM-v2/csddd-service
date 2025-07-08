@@ -57,12 +57,6 @@ public class ViolationDto {
     @Schema(description = "중대위반 항목 여부", example = "true")
     private Boolean criticalViolation;
 
-    /**
-     * 비고 또는 개선 계획
-     * 사용자가 작성한 설명 또는 향후 조치
-     */
-    @Schema(description = "비고 또는 개선 계획", example = "현재 노동조합 설립을 위한 절차를 진행 중입니다.")
-    private String remarks;
 
     // ============================================================================
     // 추가 위반 정보 (Additional Violation Information)

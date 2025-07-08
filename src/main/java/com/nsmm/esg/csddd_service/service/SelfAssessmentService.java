@@ -111,7 +111,7 @@ public class SelfAssessmentService {
                 .orElseThrow(() -> new IllegalArgumentException("해당 자가진단 결과를 찾을 수 없습니다."));
 
         // 권한 검증
-        validateAccessPermission(result, userType, headquartersId, partnerId);
+        validateAccessPermission(result, userType, headquartersId, partnerId, treePath);
 
         return result;
     }
@@ -178,7 +178,6 @@ public class SelfAssessmentService {
                 .map(answerRequest -> SelfAssessmentAnswer.builder()
                         .questionId(answerRequest.getQuestionId())
                         .category(answerRequest.getCategory())
-                        .remarks(answerRequest.getRemarks())
                         .weight(answerRequest.getWeight())
                         .answer(convertAnswerStringToBoolean(answerRequest.getAnswer()))
                         .criticalViolation(answerRequest.getCritical() != null ? answerRequest.getCritical() : false)
@@ -195,19 +194,45 @@ public class SelfAssessmentService {
             SelfAssessmentResult result,
             String userType,
             Long headquartersId,
-            Long partnerId) {
+            Long partnerId,
+            String treePath) {
         if ("HEADQUARTERS".equalsIgnoreCase(userType)) {
             if (!result.getHeadquartersId().equals(headquartersId)) {
                 throw new SecurityException("해당 자가진단 결과에 접근할 권한이 없습니다.");
             }
         } else if ("PARTNER".equalsIgnoreCase(userType)) {
-            if (result.getPartnerId() == null || !result.getPartnerId().equals(partnerId)) {
+            // 1. 같은 본사 소속인지 확인
+            if (!result.getHeadquartersId().equals(headquartersId)) {
+                throw new SecurityException("해당 자가진단 결과에 접근할 권한이 없습니다.");
+            }
+
+            // 2. 자신의 결과이거나 하위 파트너의 결과인지 확인
+            boolean hasAccess = false;
+
+            // 2-1. 자신의 결과인 경우
+            if (result.getPartnerId() != null && result.getPartnerId().equals(partnerId)) {
+                hasAccess = true;
+            }
+
+            // 2-2. 하위 파트너의 결과인 경우 (treePath 기반 검증)
+            if (!hasAccess && treePath != null && result.getTreePath() != null) {
+                // 현재 파트너의 treePath가 /1/L1-001/이고
+                // 조회하려는 결과의 treePath가 /1/L1-001/L2-001/인 경우
+                // 하위 파트너의 결과로 판단하여 접근 허용
+                if (result.getTreePath().startsWith(treePath) &&
+                        !result.getTreePath().equals(treePath)) {
+                    hasAccess = true;
+                }
+            }
+
+            if (!hasAccess) {
                 throw new SecurityException("해당 자가진단 결과에 접근할 권한이 없습니다.");
             }
         } else {
             throw new IllegalArgumentException("유효하지 않은 사용자 유형입니다.");
         }
     }
+
 
     /**
      * 검색 조건 Specification 생성

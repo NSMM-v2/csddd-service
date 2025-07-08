@@ -73,11 +73,4 @@ public class SelfAssessmentAnswerRequest {
      */
     @Schema(description = "중대위반 시 적용 등급", example = "D")
     private AssessmentGrade criticalGrade;
-
-    /**
-     * 답변 부가 설명
-     * 응답에 대한 상세 설명 (선택 사항)
-     */
-    @Schema(description = "답변 부가 설명", example = "현재 개선 계획 수립 중입니다.")
-    private String remarks;
 }
