@@ -16,12 +16,12 @@ CSDDD Service는 유럽연합의 Corporate Sustainability Due Diligence Directiv
 
 ### 기술 스택
 
-- **Framework**: Spring Boot 3.5.0
-- **Language**: Java 17
-- **Database**: MySQL 8.0 + JPA/Hibernate
-- **Security**: JWT 기반 인증/인가
-- **Documentation**: Swagger/OpenAPI 3.0
-- **Build Tool**: Gradle 8.x
+[![Spring Boot](https://img.shields.io/badge/Framework-Spring%20Boot%203.5.0-brightgreen.svg)](https://spring.io/projects/spring-boot)
+[![Java](https://img.shields.io/badge/Language-Java%2017-orange.svg)](https://openjdk.java.net/)
+[![MySQL](https://img.shields.io/badge/Database-MySQL%208.0%20%2B%20JPA%2FHibernate-blue.svg)](https://www.mysql.com/)
+[![JWT](https://img.shields.io/badge/Security-JWT%20%EA%B8%B0%EB%B0%98%20%EC%9D%B8%EC%A6%9D%2F%EC%9D%B8%EA%B0%80-red.svg)](https://jwt.io/)
+[![Swagger](https://img.shields.io/badge/Documentation-Swagger%2FOpenAPI%203.0-green.svg)](https://swagger.io/)
+[![Gradle](https://img.shields.io/badge/Build%20Tool-Gradle%208.x-blue.svg)](https://gradle.org/)
 
 ## 시스템 아키텍처
 
@@ -268,9 +268,4 @@ server:
 - **모니터링**: 상세한 로깅 및 예외 처리
 - **유지보수성**: 계층별 관심사 분리 및 명확한 책임 분담
 
----
-
-**개발자**: ESG Project Team  
-**버전**: 3.0  
-**최종 업데이트**: 2024-12-20
 
