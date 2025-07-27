@@ -4,33 +4,41 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 /**
- *  AssessmentGrade
- * - 자가진단 결과에 따라 매겨지는 평가 등급(Enum)
- * - 점수 기준 또는 위반사항 수에 따라 A ~ D 또는 B/C 로 등급 분류
+ * AssessmentGrade
+ * - 자가진단 결과에 따라 매겨지는 평가 등급 (A ~ D)
  *
- * A: 매우 우수
- * B: 양호
- * C: 보통
- * D: 미흡 / 위험 수준
- * B/C: 경계 등급
+ * A: 매우 우수 (90점 이상)
+ * B: 양호 (75점 이상)
+ * C: 보통 (60점 이상)
+ * D: 미흡 / 위험 수준 (60점 미만 또는 중대위반 존재)
  */
 public enum AssessmentGrade {
-    D,    // 0 - 가장 나쁨 (min에서 선택됨)
-    C,    // 1
-    B_C,  // 2
-    B,    // 3
-    A;    // 4 - 가장 좋음
+    D, C, B, A;
 
     @JsonValue
     public String toValue() {
-        return this == B_C ? "B/C" : name();
+        return name();
     }
 
     @JsonCreator
     public static AssessmentGrade fromValue(String value) {
-        if ("B/C".equalsIgnoreCase(value)) {
-            return B_C;
+        return AssessmentGrade.valueOf(value.toUpperCase());
+    }
+
+    public static AssessmentGrade fromScore(int score, boolean hasCriticalViolation) {
+        if (hasCriticalViolation) return D;
+        if (score >= 90) return A;
+        if (score >= 75) return B;
+        if (score >= 60) return C;
+        return D;
+    }
+
+    public static AssessmentGrade fromScoreWithCriticals(int score, java.util.List<AssessmentGrade> criticalGrades) {
+        if (criticalGrades != null && !criticalGrades.isEmpty()) {
+            return criticalGrades.stream()
+                    .min(java.util.Comparator.naturalOrder())
+                    .orElse(D);
         }
-        return AssessmentGrade.valueOf(value);
+        return fromScore(score, false);
     }
 }

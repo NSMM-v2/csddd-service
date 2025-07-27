@@ -8,16 +8,19 @@ import org.springframework.stereotype.Component;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 
+/**
+ * CSDDD 자가진단 점수 및 등급 계산 유틸리티
+ * - 각 문항은 기본점수 2.5점이며 가중치(weight)가 곱해져 총점이 결정됨
+ * - YES 응답 항목만 실제 점수로 인정됨
+ * - 최종 점수는 100점 만점 기준으로 환산됨
+ * - 중대 위반 항목(NO 응답) 존재 시 등급은 자동 강등될 수 있음
+ */
 @Slf4j
 @Component
 public class GradeCalculator {
 
-    /**
-     * 최종 평가 결과 계산 후 SelfAssessmentResult에 반영
-     * - 총점, 실제 점수 계산
-     * - 중대 위반 항목 존재 시 해당 grade로 차등 강등
-     */
     public void evaluate(SelfAssessmentResult result) {
         List<SelfAssessmentAnswer> answers = result.getAnswers();
 
@@ -32,71 +35,67 @@ public class GradeCalculator {
             return;
         }
 
-        // 유효한 답변만 필터링
+        final double BASE_SCORE = 2.5;
+
+        // 유효한 답변 필터링
         List<SelfAssessmentAnswer> validAnswers = answers.stream()
-                .filter(answer -> answer != null && answer.getWeight() != null)
+                .filter(a -> a != null && a.getWeight() != null)
                 .toList();
 
-        double totalPossible = validAnswers.stream()
-                .mapToDouble(SelfAssessmentAnswer::getWeight)
+        // 총점 및 실제 점수 계산 (2.5 × weight)
+        double totalPossibleScore = validAnswers.stream()
+                .mapToDouble(a -> BASE_SCORE * a.getWeight())
                 .sum();
 
         double actualScore = validAnswers.stream()
-                .filter(a -> Boolean.TRUE.equals(a.isYes()))
-                .mapToDouble(SelfAssessmentAnswer::getWeight)
+                .filter(SelfAssessmentAnswer::isAnswer)
+                .mapToDouble(a -> BASE_SCORE * a.getWeight())
                 .sum();
 
-        int normalizedScore = totalPossible == 0 ? 0 : (int) Math.round((actualScore / totalPossible) * 100);
+        int normalizedScore = totalPossibleScore == 0 ? 0 :
+                (int) Math.round((actualScore / totalPossibleScore) * 100);
 
-        // 중대 위반이 있는 경우: 가장 낮은 등급을 강등 기준으로 사용
-        AssessmentGrade worstCriticalGrade = validAnswers.stream()
-                .filter(a -> Boolean.TRUE.equals(a.getCriticalViolation()))
-                .map(a -> a.getCriticalGrade() != null ? a.getCriticalGrade() : AssessmentGrade.D)
-                .min(Comparator.naturalOrder())  // 가장 낮은 등급 (D 우선)
-                .orElse(null);
+        // 중대위반 항목 중 사용자가 '아니오(false)'로 응답한 항목만 필터링
+        List<AssessmentGrade> criticalGrades = validAnswers.stream()
+                .filter(a -> Boolean.TRUE.equals(a.getCriticalViolation()) && !a.isAnswer())
+                .map(SelfAssessmentAnswer::getQuestionId)
+                .map(this::getCriticalGrade)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .toList();
 
-        AssessmentGrade grade = (worstCriticalGrade != null)
-                ? worstCriticalGrade
-                : assignGrade(normalizedScore);
+        AssessmentGrade finalGrade = criticalGrades.isEmpty()
+                ? AssessmentGrade.fromScore(normalizedScore, false)
+                : criticalGrades.stream().min(Comparator.naturalOrder()).orElse(AssessmentGrade.D);
 
-        int criticalCount = (int) validAnswers.stream()
-                .filter(a -> Boolean.TRUE.equals(a.getCriticalViolation()))
-                .count();
-
-        String summary = switch (grade) {
+        String summary = switch (finalGrade) {
             case A -> "탁월한 이행 수준입니다.";
             case B -> "양호한 이행 상태이나 일부 개선 필요.";
             case C -> "보통 수준이며 개선 여지가 큽니다.";
             case D -> "미흡한 이행 상태로 시급한 개선이 필요합니다.";
-            case B_C -> "경계 수준의 이행 상태입니다. 추가적인 모니터링이 필요합니다.";
         };
 
-        String recommendations = switch (grade) {
+        String recommendation = switch (finalGrade) {
             case A -> "지속적으로 현재 수준을 유지하세요.";
             case B -> "위반 항목에 대한 문서 보완을 고려하세요.";
             case C -> "중대 항목에 대한 개선 조치 계획이 필요합니다.";
             case D -> "즉각적인 시정조치 및 모니터링 체계 도입이 필요합니다.";
-            case B_C -> "개선 조치 여부를 주기적으로 검토하고 중장기 이행 계획을 수립하세요.";
         };
 
         result.finalizeAssessment(
                 normalizedScore,
                 actualScore,
-                totalPossible,
-                grade,
+                totalPossibleScore,
+                finalGrade,
                 summary,
-                recommendations
+                recommendation
         );
     }
 
     /**
-     * 점수 → 등급 매핑 함수
-     * 90 이상: A, 75 이상: B, 60 이상: C, 그 외: D
+     * 프론트에서 관리 중인 criticalViolation.grade 정보를 기반으로 등급 반환
      */
-    private AssessmentGrade assignGrade(int score) {
-        if (score >= 90) return AssessmentGrade.A;
-        else if (score >= 75) return AssessmentGrade.B;
-        else if (score >= 60) return AssessmentGrade.C;
-        else return AssessmentGrade.D;
+    private Optional<AssessmentGrade> getCriticalGrade(String questionId) {
+        return Optional.ofNullable(CriticalGradeMap.getGradeByQuestionId(questionId));
     }
 }

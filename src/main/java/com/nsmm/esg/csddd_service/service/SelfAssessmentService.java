@@ -1,469 +1,354 @@
 package com.nsmm.esg.csddd_service.service;
 
-import com.nsmm.esg.csddd_service.util.AssessmentAnalyzer;
-import com.nsmm.esg.csddd_service.dto.CategoryAnalysisDto;
-import com.nsmm.esg.csddd_service.dto.ActionPlanDto;
-
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.nsmm.esg.csddd_service.dto.request.SelfAssessmentRequest;
-import com.nsmm.esg.csddd_service.dto.response.*;
+import com.nsmm.esg.csddd_service.dto.request.SelfAssessmentSubmitRequest;
 import com.nsmm.esg.csddd_service.entity.SelfAssessmentAnswer;
 import com.nsmm.esg.csddd_service.entity.SelfAssessmentResult;
-import com.nsmm.esg.csddd_service.enums.AnswerChoice;
-import com.nsmm.esg.csddd_service.enums.AssessmentGrade;
+import com.nsmm.esg.csddd_service.enums.AssessmentStatus;
 import com.nsmm.esg.csddd_service.repository.SelfAssessmentAnswerRepository;
 import com.nsmm.esg.csddd_service.repository.SelfAssessmentResultRepository;
 import com.nsmm.esg.csddd_service.util.GradeCalculator;
-import com.nsmm.esg.csddd_service.util.ViolationMetaMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.persistence.criteria.Predicate;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
+/**
+ * CSDDD 자가진단 서비스
+ *
+ * 자가진단 제출, 조회, 점수 계산 등의 비즈니스 로직을 처리
+ * 권한 기반 데이터 접근 제어 포함
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class SelfAssessmentService {
 
-    private final SelfAssessmentAnswerRepository answerRepository;
     private final SelfAssessmentResultRepository resultRepository;
+    private final SelfAssessmentAnswerRepository answerRepository;
     private final GradeCalculator gradeCalculator;
-    private final ObjectMapper objectMapper;
-    private final AssessmentAnalyzer assessmentAnalyzer;
+
+    // ============================================================================
+    // 자가진단 제출 처리 (Submit Assessment)
+    // ============================================================================
 
     /**
-     * 자가진단 제출 처리
+     * 자가진단 결과 제출 처리
+     *
+     * 1. 결과 객체 생성 및 저장
+     * 2. 답변 목록 생성 및 연관관계 설정
+     * 3. 점수 및 등급 계산
+     * 4. 중대위반 건수 계산
+     * 5. 최종 저장
      */
     @Transactional
-    public void submitAssessment(
-            Long userId,
+    public void submitSelfAssessment(
+            SelfAssessmentSubmitRequest requestDto,
             String userType,
-            Long headquartersId,
-            String companyName,
-            List<SelfAssessmentRequest> requestList
-    ) {
-        // 기존 결과가 있으면 삭제
-        deleteByMemberId(userId, userType);
+            String headquartersId,
+            String partnerId,
+            String treePath) {
+        log.info("자가진단 제출 시작: 회사={}, 사용자유형={}", requestDto.getCompanyName(), userType);
 
-        SelfAssessmentResult result = SelfAssessmentResult.builder()
-                .memberId(userId)
-                .userType(userType)
-                .headquartersId(headquartersId)
-                .companyName(companyName)
-                .score(0)
-                .actualScore(0.0)
-                .totalPossibleScore(0.0)
-                .grade(AssessmentGrade.D)
-//                .answersJson("[]")
-                .build();
+        // 1. 결과 객체 생성 및 초기 저장 (ID 생성을 위해)
+        SelfAssessmentResult result = createInitialResult(requestDto, userType, headquartersId, partnerId, treePath);
+        resultRepository.save(result);
 
-        List<SelfAssessmentAnswer> answers = requestList.stream()
-                .filter(Objects::nonNull)
-                .map(req -> {
-                    String answerStr = Optional.ofNullable(req.getAnswer())
-                            .orElseThrow(() -> new IllegalArgumentException(
-                                    "문항 " + req.getQuestionId() + "의 답변이 누락되었습니다."));
+        // 2. 답변 목록 생성 및 연관관계 설정
+        List<SelfAssessmentAnswer> answers = createAnswersFromRequest(requestDto, result);
 
-                    AnswerChoice answer = AnswerChoice.fromString(answerStr);
+        // 3. 양방향 연관관계 설정
+        result.assignAnswers(answers);
 
-
-                    boolean isCriticalViolation = Boolean.TRUE.equals(req.getCritical()) &&
-                            answer != AnswerChoice.YES;
-                    return SelfAssessmentAnswer.builder()
-                            .questionId(req.getQuestionId())
-                            .answer(answer)
-                            .weight(req.getWeight())
-                            .criticalViolation(isCriticalViolation)
-                            .criticalGrade(req.getCriticalGrade())
-                            .category(req.getCategory())
-                            .remarks(req.getRemarks())
-                            .result(result)
-                            .build();
-                })
-                .collect(Collectors.toList());
-
-        answers.forEach(result::addAnswer);
+        // 4. 점수 및 등급 계산
         gradeCalculator.evaluate(result);
 
-//        try {
-//            result.setAnswersJson(objectMapper.writeValueAsString(requestList));
-//        } catch (JsonProcessingException e) {
-//            throw new RuntimeException("JSON 직렬화 실패", e);
-//        }
+        // 5. 중대위반 건수 계산 (Entity의 updateCriticalViolationCount 메서드 사용)
+        result.updateCriticalViolationCount();
 
+        // 6. 최종 저장
+        answerRepository.saveAll(answers);
         resultRepository.save(result);
+
+        log.info("자가진단 제출 완료: ID={}, 점수={}, 등급={}",
+                result.getId(), result.getScore(), result.getFinalGrade());
     }
 
+    // ============================================================================
+    // 자가진단 결과 조회 처리 (Read Assessment Results)
+    // ============================================================================
+
     /**
-     * 자가진단 요약 결과 조회 (권한별 분기)
+     * 자가진단 결과 단건 조회
+     *
+     * 권한에 따른 접근 제어:
+     * - 본사: 본사 ID가 일치하는 모든 결과
+     * - 협력사: 자신의 협력사 ID가 일치하는 결과만
      */
     @Transactional(readOnly = true)
-    public SelfAssessmentResponse getResult(Long memberId, String userType, Long requesterId, String requesterType) {
+    public SelfAssessmentResult getSelfAssessmentResult(
+            Long resultId,
+            String userType,
+            Long headquartersId,
+            Long partnerId,
+            String treePath) {
+        log.info("자가진단 결과 조회: ID={}, 사용자유형={}", resultId, userType);
+
+        SelfAssessmentResult result = resultRepository.findById(resultId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 자가진단 결과를 찾을 수 없습니다."));
+
         // 권한 검증
-        validateAccess(memberId, userType, requesterId, requesterType);
-
-        SelfAssessmentResult result = findResultWithAccess(memberId, userType, requesterId, requesterType);
-        return result.toResponse();
-    }
-
-    /**
-     * 자가진단 전체 결과 + 문항별 상세 답변 조회 (권한별 분기)
-     */
-    @Transactional(readOnly = true)
-    public SelfAssessmentFullResponse getFullResult(Long memberId, String userType, Long requesterId, String requesterType) {
-        // 권한 검증
-        validateAccess(memberId, userType, requesterId, requesterType);
-
-        SelfAssessmentResult result = findResultWithAccess(memberId, userType, requesterId, requesterType);
-        List<SelfAssessmentAnswerDto> answers = result.getAnswers().stream()
-                .map(this::toAnswerDto)
-                .collect(Collectors.toList());
-
-        List<CategoryAnalysisDto> categoryAnalysis = assessmentAnalyzer.analyzeByCategory(result);
-        List<String> strengths = assessmentAnalyzer.extractStrengths(categoryAnalysis, result.getAnswers());
-        List<ActionPlanDto> actionPlans = assessmentAnalyzer.buildActionPlan(result, categoryAnalysis);
-
-        // 중대/일반 위반 항목 리스트 생성
-        List<ViolationDto> criticalViolations = result.getAnswers().stream()
-                .filter(a ->
-                        a.getAnswer() == AnswerChoice.NO ||
-                                a.getAnswer() == AnswerChoice.PARTIAL ||
-                                Boolean.TRUE.equals(a.getCriticalViolation())
-                )
-                .map(this::toViolationDto)
-                .collect(Collectors.toList());
-
-
-        return SelfAssessmentFullResponse.builder()
-                .id(result.getId())
-                .memberId(result.getMemberId())
-                .companyName(result.getCompanyName())
-                .score(result.getScore())
-                .actualScore(result.getActualScore())
-                .totalPossibleScore(result.getTotalPossibleScore())
-                .grade(result.getGrade().name())
-                .status(result.getStatus().name())
-                .criticalViolationCount(result.getCriticalViolationCount())
-                .completionRate(result.getCompletionRate())
-                .summary(result.getSummary())
-                .recommendations(result.getRecommendations())
-                .createdAt(result.getCreatedAt())
-                .updatedAt(result.getUpdatedAt())
-                .completedAt(result.getCompletedAt())
-                .answers(answers)
-                .categoryAnalysis(categoryAnalysis)
-                .strengths(strengths)
-                .actionPlan(actionPlans)
-                .criticalViolations(criticalViolations)
-                .build();
-    }
-
-    /**
-     * 위반 항목만 필터링하여 반환 (권한별 분기)
-     */
-    @Transactional(readOnly = true)
-    public List<ViolationDto> getViolations(Long memberId, String userType, Long requesterId, String requesterType) {
-        // 권한 검증
-        validateAccess(memberId, userType, requesterId, requesterType);
-
-        SelfAssessmentResult result = findResultWithAccess(memberId, userType, requesterId, requesterType);
-
-        return result.getAnswers().stream()
-                .filter(a -> a.isNo() || a.isPartial() || a.getCriticalViolation())
-                .map(this::toViolationDto)
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * 본사가 소속 협력사들의 평가 결과 리스트 조회 (1차 + 2차 모두)
-     */
-    @Transactional(readOnly = true)
-    public List<SelfAssessmentResponse> getPartnerResults(Long headquartersId, String requesterType) {
-        if (!"HEADQUARTERS".equals(requesterType)) {
-            throw new IllegalArgumentException("본사만 접근 가능합니다.");
-        }
-
-        // 1차 및 2차 협력사 모두 조회
-        List<SelfAssessmentResult> firstTierResults = resultRepository.findByHeadquartersIdAndUserTypeOrderByCreatedAtDesc(
-                headquartersId, "FIRST_TIER_PARTNER");
-
-        List<SelfAssessmentResult> secondTierResults = resultRepository.findByHeadquartersIdAndUserTypeOrderByCreatedAtDesc(
-                headquartersId, "SECOND_TIER_PARTNER");
-
-        // 하위 호환성을 위해 기존 PARTNER 타입도 포함
-        List<SelfAssessmentResult> legacyPartnerResults = resultRepository.findByHeadquartersIdAndUserTypeOrderByCreatedAtDesc(
-                headquartersId, "PARTNER");
-
-        List<SelfAssessmentResponse> results = firstTierResults.stream()
-                .map(SelfAssessmentResult::toResponse)
-                .collect(Collectors.toList());
-
-        results.addAll(secondTierResults.stream()
-                .map(SelfAssessmentResult::toResponse)
-                .collect(Collectors.toList()));
-
-        results.addAll(legacyPartnerResults.stream()
-                .map(SelfAssessmentResult::toResponse)
-                .collect(Collectors.toList()));
-
-        return results;
-    }
-
-    /**
-     * 1차 협력사가 소속 2차 협력사들의 평가 결과 리스트 조회
-     */
-    @Transactional(readOnly = true)
-    public List<SelfAssessmentResponse> getSubPartnerResults(Long firstTierPartnerId, Long headquartersId, String requesterType) {
-        if (!"FIRST_TIER_PARTNER".equals(requesterType)) {
-            throw new IllegalArgumentException("1차 협력사만 접근 가능합니다.");
-        }
-
-        // 1차 협력사가 실제로 존재하는지 확인
-        validateFirstTierPartnerExists(firstTierPartnerId, headquartersId);
-
-        // 해당 1차 협력사에 속한 2차 협력사들의 결과 조회
-        // 실제로는 별도의 관계 테이블이나 필드가 필요할 수 있지만,
-        // 현재 구조에서는 headquartersId로 필터링하고 2차 협력사만 조회
-        List<SelfAssessmentResult> results = resultRepository.findByHeadquartersIdAndUserTypeOrderByCreatedAtDesc(
-                headquartersId, "SECOND_TIER_PARTNER");
-
-
-        // 이를 위해서는 추가적인 관계 정보가 필요 (예: parentPartnerId 필드)
-
-        return results.stream()
-                .map(SelfAssessmentResult::toResponse)
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * 특정 협력사의 최신 결과 조회 (본사 전용)
-     */
-    @Transactional(readOnly = true)
-    public SelfAssessmentResponse getPartnerResult(Long partnerId, Long headquartersId, String requesterType) {
-        if (!"HEADQUARTERS".equals(requesterType)) {
-            throw new IllegalArgumentException("본사만 접근 가능합니다.");
-        }
-
-        SelfAssessmentResult result = resultRepository.findTopByMemberIdAndHeadquartersIdOrderByCreatedAtDesc(
-                        partnerId, headquartersId)
-                .orElseThrow(() -> new IllegalStateException("해당 협력사의 평가 결과가 없습니다."));
-
-        return result.toResponse();
-    }
-
-    /**
-     * 특정 2차 협력사의 최신 결과 조회 (1차 협력사 전용)
-     */
-    @Transactional(readOnly = true)
-    public SelfAssessmentResponse getSubPartnerResult(Long subPartnerId, Long firstTierPartnerId, Long headquartersId, String requesterType) {
-        if (!"FIRST_TIER_PARTNER".equals(requesterType)) {
-            throw new IllegalArgumentException("1차 협력사만 접근 가능합니다.");
-        }
-
-        // 1차 협력사 존재 여부 확인
-        validateFirstTierPartnerExists(firstTierPartnerId, headquartersId);
-
-        // 2차 협력사 결과 조회
-        SelfAssessmentResult result = (SelfAssessmentResult) resultRepository.findTopByMemberIdAndHeadquartersIdAndUserTypeOrderByCreatedAtDesc(
-                        subPartnerId, headquartersId, "SECOND_TIER_PARTNER")
-                .orElseThrow(() -> new IllegalStateException("해당 2차 협력사의 평가 결과가 없습니다."));
-
-        // 이를 위해서는 추가적인 관계 정보가 필요
-
-        return result.toResponse();
-    }
-
-    /**
-     * 기존 결과 삭제
-     */
-    @Transactional
-    public void deleteByMemberId(Long memberId, String userType) {
-        resultRepository.findTopByMemberIdAndUserTypeOrderByCreatedAtDesc(memberId, userType).ifPresent(result -> {
-            answerRepository.deleteAll(result.getAnswers());
-            resultRepository.delete(result);
-        });
-    }
-
-    // === 권한 검증 및 내부 유틸리티 메서드 ===
-
-    /**
-     * 접근 권한 검증
-     */
-    private void validateAccess(Long targetMemberId, String targetUserType, Long requesterId, String requesterType) {
-        if ("PARTNER".equals(requesterType) || "FIRST_TIER_PARTNER".equals(requesterType) || "SECOND_TIER_PARTNER".equals(requesterType)) {
-            // 협력사는 자신의 데이터만 접근 가능
-            if (!requesterId.equals(targetMemberId)) {
-                throw new IllegalArgumentException("접근 권한이 없습니다.");
-            }
-        } else if ("HEADQUARTERS".equals(requesterType)) {
-            // 본사는 자신의 데이터와 소속 협력사 데이터 접근 가능
-            if (!requesterId.equals(targetMemberId)) {
-                // 협력사 데이터에 접근하는 경우, 본사-협력사 관계 확인
-                if (!"PARTNER".equals(targetUserType) &&
-                        !"FIRST_TIER_PARTNER".equals(targetUserType) &&
-                        !"SECOND_TIER_PARTNER".equals(targetUserType)) {
-                    throw new IllegalArgumentException("다른 본사의 데이터에 접근할 수 없습니다.");
-                }
-                // 추가 검증: 해당 협력사가 실제로 이 본사 소속인지 확인
-                validateHeadquartersPartnerRelation(requesterId, targetMemberId);
-            }
-        } else {
-            throw new IllegalArgumentException("유효하지 않은 사용자 타입입니다: " + requesterType);
-        }
-    }
-
-    /**
-     * 본사-협력사 관계 검증
-     */
-    private void validateHeadquartersPartnerRelation(Long headquartersId, Long partnerId) {
-        boolean exists = resultRepository.findTopByMemberIdAndHeadquartersIdOrderByCreatedAtDesc(partnerId, headquartersId)
-                .isPresent();
-
-        if (!exists) {
-            throw new IllegalArgumentException("해당 협력사는 귀하의 소속이 아닙니다.");
-        }
-    }
-
-    /**
-     * 1차 협력사 존재 여부 검증
-     */
-    private void validateFirstTierPartnerExists(Long firstTierPartnerId, Long headquartersId) {
-        boolean exists = resultRepository.findTopByMemberIdAndHeadquartersIdAndUserTypeOrderByCreatedAtDesc(
-                firstTierPartnerId, headquartersId, "FIRST_TIER_PARTNER").isPresent();
-
-        if (!exists) {
-            throw new IllegalArgumentException("해당 1차 협력사가 존재하지 않습니다.");
-        }
-    }
-
-    /**
-     * 권한에 따른 결과 조회
-     */
-    private SelfAssessmentResult findResultWithAccess(Long memberId, String userType, Long requesterId, String requesterType) {
-        SelfAssessmentResult result;
-
-        if ("HEADQUARTERS".equals(requesterType)) {
-            if (memberId.equals(requesterId)) {
-                // 본사가 자신의 데이터 조회
-                result = resultRepository.findTopByMemberIdAndUserTypeAndHeadquartersIdOrderByCreatedAtDesc(
-                                memberId, userType, requesterId)
-                        .orElseThrow(() -> new IllegalStateException("평가 결과가 없습니다."));
-            } else {
-                // 본사가 협력사 데이터 조회
-                result = resultRepository.findTopByMemberIdAndHeadquartersIdOrderByCreatedAtDesc(
-                                memberId, requesterId)
-                        .orElseThrow(() -> new IllegalStateException("해당 협력사의 평가 결과가 없습니다."));
-            }
-        } else {
-            // 협력사는 자신의 데이터만 조회
-            result = resultRepository.findTopByMemberIdAndUserTypeOrderByCreatedAtDesc(memberId, userType)
-                    .orElseThrow(() -> new IllegalStateException("평가 결과가 없습니다."));
-        }
+        validateAccessPermission(result, userType, headquartersId, partnerId, treePath);
 
         return result;
     }
 
-    // === 기존 변환 메서드들 (하위 호환성 유지) ===
-
     /**
-     * @deprecated 권한 검증이 없는 기존 메서드. getResult(memberId, userType, requesterId, requesterType) 사용 권장
+     * 자가진단 결과 목록 조회 (조건 + 페이징)
+     *
+     * 사용자 유형별 필터링:
+     * - 본사: 모든 결과 또는 협력사 결과만
+     * - 협력사: 자신의 결과 또는 하위 협력사 결과
      */
-    @Deprecated
     @Transactional(readOnly = true)
-    public SelfAssessmentResponse getResult(Long memberId, String userType) {
-        SelfAssessmentResult result = resultRepository.findTopByMemberIdAndUserTypeOrderByCreatedAtDesc(memberId, userType)
-                .orElseThrow(() -> new IllegalStateException("평가 결과가 없습니다."));
-        return result.toResponse();
+    public Page<SelfAssessmentResult> getSelfAssessmentResults(
+            String userType,
+            Long headquartersId,
+            Long partnerId,
+            String treePath,
+            String companyName,
+            String category,
+            String startDate,
+            String endDate,
+            Pageable pageable,
+            Boolean onlyPartners) {
+        log.info("자가진단 결과 목록 조회: 사용자유형={}, 본사ID={}, 협력사ID={}",
+                userType, headquartersId, partnerId);
+
+        Specification<SelfAssessmentResult> spec = createSearchSpecification(
+                userType, headquartersId, partnerId, treePath,
+                companyName, category, startDate, endDate, onlyPartners);
+
+        return resultRepository.findAll(spec, pageable);
     }
 
+    // ============================================================================
+    // 프라이빗 헬퍼 메서드 (Private Helper Methods)
+    // ============================================================================
+
     /**
-     * @deprecated 권한 검증이 없는 기존 메서드. getFullResult(memberId, userType, requesterId, requesterType) 사용 권장
+     * 초기 결과 객체 생성
      */
-    @Deprecated
-    @Transactional(readOnly = true)
-    public SelfAssessmentFullResponse getFullResult(Long memberId, String userType) {
-        SelfAssessmentResult result = resultRepository.findTopByMemberIdAndUserTypeOrderByCreatedAtDesc(memberId, userType)
-                .orElseThrow(() -> new IllegalStateException("평가 결과가 없습니다."));
-
-        List<SelfAssessmentAnswerDto> answers = result.getAnswers().stream()
-                .map(this::toAnswerDto)
-                .collect(Collectors.toList());
-
-        return SelfAssessmentFullResponse.builder()
-                .id(result.getId())
-                .memberId(result.getMemberId())
-                .score(result.getScore())
-                .actualScore(result.getActualScore())
-                .totalPossibleScore(result.getTotalPossibleScore())
-                .grade(result.getGrade().name())
-                .status(result.getStatus().name())
-                .criticalViolationCount(result.getCriticalViolationCount())
-                .completionRate(result.getCompletionRate())
-                .summary(result.getSummary())
-                .recommendations(result.getRecommendations())
-                .createdAt(result.getCreatedAt())
-                .updatedAt(result.getUpdatedAt())
-                .completedAt(result.getCompletedAt())
-                .companyName(result.getCompanyName())
-                .answers(answers)
+    private SelfAssessmentResult createInitialResult(
+            SelfAssessmentSubmitRequest requestDto,
+            String userType,
+            String headquartersId,
+            String partnerId,
+            String treePath) {
+        return SelfAssessmentResult.builder()
+                .companyName(requestDto.getCompanyName())
+                .userType(userType)
+                .headquartersId(parseToLong(headquartersId))
+                .partnerId(partnerId != null ? parseToLong(partnerId) : null)
+                .treePath(treePath)
+                .status(AssessmentStatus.IN_PROGRESS)
                 .build();
     }
 
     /**
-     * @deprecated 권한 검증이 없는 기존 메서드. getViolations(memberId, userType, requesterId, requesterType) 사용 권장
+     * 요청 DTO에서 답변 엔티티 목록 생성
      */
-    @Deprecated
-    @Transactional(readOnly = true)
-    public List<ViolationDto> getViolations(Long memberId, String userType) {
-        SelfAssessmentResult result = resultRepository.findTopByMemberIdAndUserTypeOrderByCreatedAtDesc(memberId, userType)
-                .orElseThrow(() -> new IllegalStateException("평가 결과가 없습니다."));
-
-        return result.getAnswers().stream()
-                .filter(a -> a.isNo() || a.isPartial() || a.getCriticalViolation())
-                .map(this::toViolationDto)
+    private List<SelfAssessmentAnswer> createAnswersFromRequest(
+            SelfAssessmentSubmitRequest requestDto,
+            SelfAssessmentResult result) {
+        return requestDto.getAnswers().stream()
+                .map(answerRequest -> SelfAssessmentAnswer.builder()
+                        .questionId(answerRequest.getQuestionId())
+                        .category(answerRequest.getCategory())
+                        .weight(answerRequest.getWeight())
+                        .answer(convertAnswerStringToBoolean(answerRequest.getAnswer()))
+                        .criticalViolation(answerRequest.getCritical() != null ? answerRequest.getCritical() : false)
+                        .criticalGrade(answerRequest.getCriticalGrade())
+                        .result(result)
+                        .build())
                 .collect(Collectors.toList());
     }
 
-    // === 내부 변환 메서드 ===
+    /**
+     * 접근 권한 검증
+     */
+    private void validateAccessPermission(
+            SelfAssessmentResult result,
+            String userType,
+            Long headquartersId,
+            Long partnerId,
+            String treePath) {
+        if ("HEADQUARTERS".equalsIgnoreCase(userType)) {
+            if (!result.getHeadquartersId().equals(headquartersId)) {
+                throw new SecurityException("해당 자가진단 결과에 접근할 권한이 없습니다.");
+            }
+        } else if ("PARTNER".equalsIgnoreCase(userType)) {
+            // 1. 같은 본사 소속인지 확인
+            if (!result.getHeadquartersId().equals(headquartersId)) {
+                throw new SecurityException("해당 자가진단 결과에 접근할 권한이 없습니다.");
+            }
 
-    private SelfAssessmentAnswerDto toAnswerDto(SelfAssessmentAnswer a) {
-        return SelfAssessmentAnswerDto.builder()
-                .id(a.getId())
-                .questionId(a.getQuestionId())
-                .answer(a.getAnswer())
-                .weight(a.getWeight())
-                .criticalViolation(a.getCriticalViolation())
-                .category(a.getCategory())
-                .remarks(a.getRemarks())
-                .createdAt(a.getCreatedAt())
-                .updatedAt(a.getUpdatedAt())
-                .build();
+            // 2. 자신의 결과이거나 하위 파트너의 결과인지 확인
+            boolean hasAccess = false;
+
+            // 2-1. 자신의 결과인 경우
+            if (result.getPartnerId() != null && result.getPartnerId().equals(partnerId)) {
+                hasAccess = true;
+            }
+
+            // 2-2. 하위 파트너의 결과인 경우 (treePath 기반 검증)
+            if (!hasAccess && treePath != null && result.getTreePath() != null) {
+                // 현재 파트너의 treePath가 /1/L1-001/이고
+                // 조회하려는 결과의 treePath가 /1/L1-001/L2-001/인 경우
+                // 하위 파트너의 결과로 판단하여 접근 허용
+                if (result.getTreePath().startsWith(treePath) &&
+                        !result.getTreePath().equals(treePath)) {
+                    hasAccess = true;
+                }
+            }
+
+            if (!hasAccess) {
+                throw new SecurityException("해당 자가진단 결과에 접근할 권한이 없습니다.");
+            }
+        } else {
+            throw new IllegalArgumentException("유효하지 않은 사용자 유형입니다.");
+        }
     }
 
-    private ViolationDto toViolationDto(SelfAssessmentAnswer a) {
-        String questionId = a.getQuestionId();
-        ViolationMeta meta = ViolationMetaMap.get(questionId);
 
-        if (meta == null) {
-            meta = new ViolationMeta("", "", ""); // null 방지용 빈 값 처리
+    /**
+     * 검색 조건 Specification 생성
+     */
+    private Specification<SelfAssessmentResult> createSearchSpecification(
+            String userType,
+            Long headquartersId,
+            Long partnerId,
+            String treePath,
+            String companyName,
+            String category,
+            String startDate,
+            String endDate,
+            Boolean onlyPartners) {
+        return (root, query, cb) -> {
+            List<Predicate> predicates = new java.util.ArrayList<>();
+
+            // 기본 권한 필터링
+            addUserTypePredicates(predicates, root, cb, userType, headquartersId, partnerId, treePath, onlyPartners);
+
+            // 검색 조건 추가
+            addSearchPredicates(predicates, root, cb, companyName, category, startDate, endDate);
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+    }
+
+    /**
+     * 사용자 유형별 권한 Predicate 추가
+     */
+    private void addUserTypePredicates(
+            List<Predicate> predicates,
+            jakarta.persistence.criteria.Root<SelfAssessmentResult> root,
+            jakarta.persistence.criteria.CriteriaBuilder cb,
+            String userType,
+            Long headquartersId,
+            Long partnerId,
+            String treePath,
+            Boolean onlyPartners) {
+        if ("PARTNER".equalsIgnoreCase(userType)) {
+            predicates.add(cb.equal(root.get("headquartersId"), headquartersId));
+
+            if (Boolean.TRUE.equals(onlyPartners)) {
+                // 하위 협력사 결과만 조회 - treePath 기반
+                if (treePath != null && !treePath.isEmpty()) {
+                    // 현재 협력사가 /1/L1-001/인 경우
+                    // 하위는 /1/L1-001/L2-001/, /1/L1-001/L2-002/ 등
+                    predicates.add(cb.like(root.get("treePath"), treePath + "%"));
+                    predicates.add(cb.notEqual(root.get("treePath"), treePath));
+                    predicates.add(cb.isNotNull(root.get("partnerId"))); // 협력사만
+
+                    log.debug("하위 협력사 조회: treePath starts with {} but not equal", treePath);
+                }
+            } else {
+                // 자신의 결과만 조회
+                if (partnerId != null) {
+                    predicates.add(cb.equal(root.get("partnerId"), partnerId));
+                }
+            }
+        } else if ("HEADQUARTERS".equalsIgnoreCase(userType)) {
+            predicates.add(cb.equal(root.get("headquartersId"), headquartersId));
+
+            if (Boolean.TRUE.equals(onlyPartners)) {
+                // 협력사 결과만
+                predicates.add(cb.isNotNull(root.get("partnerId")));
+            } else {
+                // 본사 결과만
+                predicates.add(cb.isNull(root.get("partnerId")));
+            }
+        }
+    }
+
+    /**
+     * 검색 조건 Predicate 추가
+     */
+    private void addSearchPredicates(
+            List<Predicate> predicates,
+            jakarta.persistence.criteria.Root<SelfAssessmentResult> root,
+            jakarta.persistence.criteria.CriteriaBuilder cb,
+            String companyName,
+            String category,
+            String startDate,
+            String endDate) {
+        if (companyName != null && !companyName.trim().isEmpty()) {
+            predicates.add(cb.like(root.get("companyName"), "%" + companyName.trim() + "%"));
         }
 
-        return ViolationDto.builder()
-                .questionId(questionId)
-                .questionText(Optional.ofNullable(a.getQuestionText()).orElse(""))
-                .answer(a.getAnswer())
-                .criticalViolation(Optional.ofNullable(a.getCriticalViolation()).orElse(false))
-                .violationGrade(a.getCriticalGrade())
-                .violationReason(a.getRemarks())
-                .category(meta.getCategory())
-                .penaltyInfo(meta.getPenaltyInfo())
-                .legalBasis(meta.getLegalBasis())
-                .build();
+        if (category != null && !category.trim().isEmpty()) {
+            // TODO: 카테고리 필터링 로직 (답변 테이블과 조인 필요)
+            log.warn("카테고리 필터링은 아직 구현되지 않았습니다: {}", category);
+        }
+
+        if (startDate != null && endDate != null) {
+            try {
+                LocalDateTime startDateTime = LocalDate.parse(startDate).atStartOfDay();
+                LocalDateTime endDateTime = LocalDate.parse(endDate).atTime(23, 59, 59);
+                predicates.add(cb.between(root.get("createdAt"), startDateTime, endDateTime));
+            } catch (Exception e) {
+                log.warn("날짜 파싱 실패: 시작날짜={}, 종료날짜={}", startDate, endDate);
+            }
+        }
+    }
+
+    /**
+     * 문자열을 Long으로 안전하게 변환
+     */
+    private Long parseToLong(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            return Long.parseLong(value.trim());
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("유효하지 않은 숫자 형식입니다: " + value);
+        }
+    }
+
+    /**
+     * "yes", "no" → boolean 변환
+     */
+    private boolean convertAnswerStringToBoolean(String answer) {
+        return answer != null && "yes".equalsIgnoreCase(answer.trim());
     }
 }

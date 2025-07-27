@@ -1,43 +1,71 @@
 package com.nsmm.esg.csddd_service.dto.response;
 
-import com.nsmm.esg.csddd_service.enums.AnswerChoice;
-import com.nsmm.esg.csddd_service.enums.AssessmentGrade;
+import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 /**
- * 자가진단 위반 항목 DTO
- * - 위험 응답만 따로 필터링해서 전달할 때 사용
- * - 사용처 예: /result/violations API 응답
+ * CSDDD 자가진단 위반 항목 응답 DTO
+ *
+ * 자가진단 결과에서 위반이 발생한 항목들만을 필터링하여 제공하는 DTO
+ * 위험 관리 및 개선이 필요한 항목들을 집중적으로 분석할 때 사용
+ *
+ * 위반 분류 기준:
+ * - NO 응답: 완전 미준수 (answer = false)
+ * - 중대위반 항목: 특별 관리 대상
+ *
  */
+@Schema(description = "자가진단 위반 항목 응답")
 @Getter
+@Setter
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class ViolationDto {
 
-    // 문항 ID (예: "2.3", "3.1" 등)
+    // ============================================================================
+    // 질문 정보 (Question Information)
+    // ============================================================================
+
+    @Schema(description = "문항 식별자", example = "Q1_1")
     private String questionId;
 
-    // 문항 내용 (프론트에서 표시용)
-    private String questionText;
-
-    // 응답 선택 (YES, NO, PARTIAL)
-    private AnswerChoice answer;
-
-    // 중대 위반 여부 (true: 중대 위반)
-    private Boolean criticalViolation;
-
-    // 위반 시 자동 강등 등급
-    private AssessmentGrade violationGrade;
-
-    // 위반 사유 (비고)
-    private String violationReason;
-
-    // 카테고리 (예: 인권, 환경, 공급망 등)
+    @Schema(description = "문항 카테고리", example = "인권및노동")
     private String category;
 
-    // 벌금이나 제재 정보
-    private String penaltyInfo;
+    // ============================================================================
+    // 위반 정보 (Violation Information)
+    // ============================================================================
 
-    // 관련 법적 조항
-    private String legalBasis;
+    /**
+     * 사용자 응답
+     * false = 위반 (NO)
+     * true = 준수 (YES)
+     */
+    @Schema(description = "사용자 응답 (위반 여부)", example = "false", allowableValues = { "true", "false" })
+    private boolean answer;
+
+    /**
+     * 중대위반 여부
+     * true인 경우 특별 관리가 필요한 중요 위반 항목
+     */
+    @Schema(description = "중대위반 항목 여부", example = "true")
+    private Boolean criticalViolation;
+
+
+    // ============================================================================
+    // 추가 위반 정보 (Additional Violation Information)
+    // ============================================================================
+
+    @Schema(description = "문항 가중치", example = "2.5")
+    private Double weight;
+
+    @Schema(description = "중대위반 시 적용 등급", example = "D", allowableValues = { "A", "B", "C", "D" })
+    private String criticalGrade;
+
+    @Schema(description = "위반 위험도", example = "높음", allowableValues = { "낮음", "보통", "높음", "매우높음" })
+    private String riskLevel;
 }
