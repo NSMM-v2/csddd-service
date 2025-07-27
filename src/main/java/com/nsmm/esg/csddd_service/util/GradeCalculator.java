@@ -25,6 +25,7 @@ public class GradeCalculator {
         List<SelfAssessmentAnswer> answers = result.getAnswers();
 
         if (answers == null || answers.isEmpty()) {
+            log.warn("자가진단 답변이 비어있습니다. 평가를 건너뜁니다.");
             result.finalizeAssessment(
                     0, 0, 0,
                     AssessmentGrade.D,

@@ -20,13 +20,13 @@ import org.springframework.web.bind.annotation.*;
 
 /**
  * CSDDD 자가진단 API 컨트롤러
- * 
+ *
  * 주요 기능:
  * - 자가진단 제출 (점수 계산, 등급 산정)
  * - 자가진단 결과 조회 (단건/목록, 권한별 필터링)
  * - 중대위반 메타데이터 조회
  * - 본사/협력사 권한 기반 접근 제어
- * 
+ *
  */
 @RestController
 @RequestMapping("/api/v1/csddd")

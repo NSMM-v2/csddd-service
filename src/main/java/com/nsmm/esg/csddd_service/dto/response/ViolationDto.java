@@ -9,16 +9,14 @@ import lombok.Setter;
 
 /**
  * CSDDD 자가진단 위반 항목 응답 DTO
- * 
+ *
  * 자가진단 결과에서 위반이 발생한 항목들만을 필터링하여 제공하는 DTO
  * 위험 관리 및 개선이 필요한 항목들을 집중적으로 분석할 때 사용
- * 
+ *
  * 위반 분류 기준:
  * - NO 응답: 완전 미준수 (answer = false)
  * - 중대위반 항목: 특별 관리 대상
- * 
- * @author ESG Project Team
- * @version 2.0
+ *
  */
 @Schema(description = "자가진단 위반 항목 응답")
 @Getter

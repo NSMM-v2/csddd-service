@@ -10,23 +10,21 @@ import java.time.LocalDateTime;
 
 /**
  * CSDDD 자가진단 답변 엔티티
- * 
+ *
  * 각 진단 문항에 대한 개별 답변을 저장하는 엔티티
  * SelfAssessmentResult와 다대일 관계를 가지며 개별 문항의 응답 데이터를 관리
- * 
+ *
  * 주요 기능:
  * - 문항별 답변 데이터 저장 (예/아니요)
  * - 가중치 기반 점수 계산 지원
  * - 중대위반 항목 관리
  * - 답변에 대한 추가 설명 저장
- * 
+ *
  * 답변 처리 규칙:
  * - YES(true): 완전 준수, 가중치 100% 적용
  * - NO(false): 미준수, 가중치 0% 적용
  * - 중대위반 항목에서 NO 응답 시 전체 등급 강등
- * 
- * @author ESG Project Team
- * @version 2.0
+ *
  */
 @Entity
 @Table(name = "self_assessment_answer", indexes = {
@@ -138,7 +136,7 @@ public class SelfAssessmentAnswer {
     /**
      * 자가진단 결과와 연관관계 설정
      * 양방향 연관관계 관리를 위한 편의 메서드
-     * 
+     *
      * @param result 연결할 자가진단 결과
      */
     public void assignToResult(SelfAssessmentResult result) {
@@ -148,7 +146,7 @@ public class SelfAssessmentAnswer {
     /**
      * 중대위반 발생 여부 확인
      * 중대위반 항목이면서 NO 응답인 경우 true 반환
-     * 
+     *
      * @return 중대위반 발생 시 true
      */
     public boolean hasCriticalViolation() {
@@ -158,7 +156,7 @@ public class SelfAssessmentAnswer {
     /**
      * 답변 점수 계산
      * 응답에 따른 가중치 적용 점수 계산
-     * 
+     *
      * @return 계산된 점수 (YES: 가중치 100%, NO: 0점)
      */
     public double calculateScore() {

@@ -33,8 +33,6 @@ import java.util.List;
  * - C등급: 60점 이상 75점 미만
  * - D등급: 60점 미만 또는 중대위반 발생
  *
- * @author ESG Project Team
- * @version 2.0
  */
 @Entity
 @Table(name = "self_assessment_results", indexes = {

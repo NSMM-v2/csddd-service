@@ -16,8 +16,6 @@ import java.util.List;
  * NSMM 프로젝트 표준 응답 형식
  * 모든 API 응답에서 일관된 구조를 제공
  * 
- * @author ESG Project Team
- * @version 2.0
  */
 @Schema(description = "공통 API 응답")
 @Getter

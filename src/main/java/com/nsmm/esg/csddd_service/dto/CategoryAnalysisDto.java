@@ -13,8 +13,6 @@ import lombok.NoArgsConstructor;
  * 5개 주요 평가 영역별 점수 및 상태 분석 결과
  * 자가진단 상세 조회 시 카테고리별 현황 제공
  * 
- * @author ESG Project Team
- * @version 2.0
  */
 @Schema(description = "카테고리별 분석 결과")
 @Getter

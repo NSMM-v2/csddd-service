@@ -12,11 +12,6 @@ import lombok.Setter;
  * 
  * 자가진단 결과를 바탕으로 한 구체적인 개선 방안 제시
  * 우선순위와 권장 조치사항을 포함
- * 
- * @author ESG Project Team
- * @version 2.0
- * @since 2024
- * @lastModified 2024-12-20
  */
 @Schema(description = "개선 계획 제안")
 @Getter

@@ -8,12 +8,10 @@ import lombok.Setter;
 
 /**
  * CSDDD 중대위반 메타데이터 응답 DTO
- * 
+ *
  * 특정 문항의 중대위반 관련 메타 정보를 제공
  * 법적 근거, 처벌 정보 등을 포함
- * 
- * @author ESG Project Team
- * @version 1.0
+ *
  */
 @Schema(description = "중대위반 메타데이터")
 @Getter
