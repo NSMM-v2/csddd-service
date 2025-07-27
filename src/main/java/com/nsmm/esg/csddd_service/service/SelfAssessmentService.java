@@ -26,11 +26,6 @@ import java.util.stream.Collectors;
  * 
  * 자가진단 제출, 조회, 점수 계산 등의 비즈니스 로직을 처리
  * 권한 기반 데이터 접근 제어 포함
- * 
- * @author ESG Project Team
- * @version 3.0
- * @since 2024
- * @lastModified 2024-12-20
  */
 @Slf4j
 @Service

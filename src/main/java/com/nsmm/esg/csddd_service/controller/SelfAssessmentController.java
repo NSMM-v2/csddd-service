@@ -27,8 +27,6 @@ import org.springframework.web.bind.annotation.*;
  * - 중대위반 메타데이터 조회
  * - 본사/협력사 권한 기반 접근 제어
  * 
- * @author ESG Project Team
- * @version 3.0
  */
 @RestController
 @RequestMapping("/api/v1/csddd")
